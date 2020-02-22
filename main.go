@@ -26,10 +26,11 @@ var WebServer *http.Server
 func main() {
 	// Analyzing the command line arguments
 	var (
-		port              = flag.Int("port", core.GetEnvAsInt("PORT", 80), "the TCP port for which the server listens to")
-		probePort         = flag.Int("probeport", core.GetEnvAsInt("PROBE_PORT", 0), "Start a Health web server for Kubernetes if > 0")
-		version           = flag.Bool("version", false, "prints the current version and exits")
-		wait              = flag.Duration("graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish")
+		port         = flag.Int("port", core.GetEnvAsInt("PORT", 80), "the TCP port for which the server listens to")
+		probePort    = flag.Int("probeport", core.GetEnvAsInt("PROBE_PORT", 0), "Start a Health web server for Kubernetes if > 0")
+		storageRoot  = flag.String("storage-root", core.GetEnvAsString("STORAGE_ROOT", "/var/storage"), "the folder where all the files are stored")
+		version      = flag.Bool("version", false, "prints the current version and exits")
+		wait         = flag.Duration("graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish")
 	)
 	flag.Parse()
 
@@ -45,6 +46,15 @@ func main() {
 	Log.Infof("Starting %s v. %s", APP, VERSION)
 	Log.Infof("Log Destination: %s", Log)
 	Log.Infof("Webserver Port=%d, Health Port=%d", *port, *probePort)
+
+	// Creating the storage folder
+	if , err := os.Stat(*storageRoot); os.IsNotExist(err) {
+		if err = os.MkdirAll(*storageRoot, os.ModePerm); err != nil {
+			Log.Fatalf("Failed to create the storage folder", err)
+			Log.Close()
+			os.Exit(-1)
+		}
+	}
 
 	// Setting up web routes
 	router := mux.NewRouter().StrictSlash(true)
