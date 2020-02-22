@@ -14,6 +14,7 @@ RUN CGO_ENABLED=0 go build -o main .
 
 # ---
 FROM alpine:3.9 as system
+LABEL maintainer="Gildas Cherruel <gildas.cherruel@genesys.com>"
 
 # Add CA Certificates and clean
 RUN apk update && apk upgrade \
@@ -24,14 +25,6 @@ RUN apk update && apk upgrade \
 # Creates a harmless user
 RUN adduser -D -g '' docker
 
-#RUN setcap 'cap_net_bind_service=+ep' ${APP_ROOT}/purecloud_connector
-
-# ---
-FROM scratch
-LABEL maintainer="Gildas Cherruel <gildas.cherruel@genesys.com>"
-
-ENV APP_ROOT /
-
 #set our environment
 ARG PROBE_PORT=
 ENV PROBE_PORT ${PROBE_PORT}
@@ -41,6 +34,9 @@ ENV TRACE_PROBE ${TRACE_PROBE}
 ARG PORT=8080
 ENV PORT ${PORT}
 
+ARG STORAGE_ROOT=/usr/local/storage
+ENV STORAGE_ROOT ${STORAGE_ROOT}
+
 ARG API_ADMIN_USERNAME=admin
 ENV API_ADMIN_USERNAME ${API_ADMIN_USERNAME}
 ARG API_TOKEN_SECRET=
@@ -48,18 +44,20 @@ ENV API_TOKEN_SECRET ${API_TOKEN_SECRET}
 ARG API_TOKEN_EXPIRES=
 ENV API_TOKEN_EXPIRES ${API_TOKEN_EXPIRES}
 
-# Add CA Certificates  and passwd from the builder
-COPY --from=system /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=system /etc/passwd                        /etc/passwd
+# Preparing the Storage area
+RUN mkdir -p ${STORAGE_ROOT}
+RUN chown docker ${STORAGE_ROOT}
+RUN chmod 700 ${STORAGE_ROOT}
 
 # Expose web port
 EXPOSE ${PORT}
 
 # Install application, dependencies first
-WORKDIR ${APP_ROOT}
-COPY --from=builder /main ${APP_ROOT}/cantina
+WORKDIR /usr/local/bin
+COPY --from=builder /main /usr/local/bin/cantina
+#RUN setcap 'cap_net_bind_service=+ep' ${APP_ROOT}/cantina
 
 USER docker
 
 # CMD is useless here as this image contains only one binary
-ENTRYPOINT [ "/cantina" ]
+ENTRYPOINT [ "/usr/local/bin/cantina" ]
