@@ -14,10 +14,6 @@ import (
 // sync/atomic should be used to read/write here
 var HealthHTTP int32
 
-// HealthAMQP contains the health of the AMQP Connector
-// sync/atomic should be used to read/write here
-var HealthAMQP int32
-
 // HealthRoutes fills the router with routes for health
 func HealthRoutes(router *mux.Router, apiroot string, log *logger.Logger) {
 	if len(core.GetEnvAsString("TRACE_PROBE", "")) > 0 {
