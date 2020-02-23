@@ -14,12 +14,6 @@ import (
 
 func FilesRoutes(router *mux.Router, apiRoot, storageRoot string, storageURL *url.URL, log *logger.Logger) {
 	router.Methods("POST").Path(apiRoot + "/files").Handler(log.HttpHandler()(CreateFileHandler(storageRoot, storageURL)))
-	router.Methods("GET").Path(apiRoot + "/files/{filename}").Handler(log.HttpHandler()(FetchFileHandler(storageRoot)))
-
-	// These routes are aliases
-	router.Methods("GET").Path(apiRoot + "/download/{filename}").Handler(log.HttpHandler()(FetchFileHandler(storageRoot)))
-	router.Methods("GET").Path(apiRoot + "/dl/{filename}").Handler(log.HttpHandler()(FetchFileHandler(storageRoot)))
-	router.Methods("GET").Path(apiRoot + "/file/{filename}").Handler(log.HttpHandler()(FetchFileHandler(storageRoot)))
 }
 
 func CreateFileHandler(storageRoot string, storageURL *url.URL) http.Handler {
@@ -79,17 +73,5 @@ func CreateFileHandler(storageRoot string, storageURL *url.URL) http.Handler {
 			MimeType:   header.Header.Get("Content-Type"), // TODO: What if this is empty?!?
 			Size:       written,
 		})
-	})
-}
-
-func FetchFileHandler(storageRoot string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log := logger.Must(logger.FromContext(r.Context()))
-		log.Debugf("Request Headers: %#v", r.Header)
-
-		params  := mux.Vars(r)
-
-		log.Infof("Fetching File %s from %s", params["filename"], storageRoot)
-		core.RespondWithJSON(w, http.StatusOK, struct{}{})
 	})
 }
