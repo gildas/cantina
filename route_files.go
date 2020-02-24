@@ -56,11 +56,7 @@ func CreateFileHandler(storageRoot string, storageURL *url.URL) http.Handler {
 		}
 		log.Infof("Written %d bytes to %s", written, destination)
 
-		// TODO: If the file is an image, calculate a thumbnail
-		// TODO: Otherwise get an "icon" of the mimetype
-		// TODO: If the file is an audio, calculate its duration in seconds
-		// TODO: If the file is a video?!? thumbnail (with an icon in the middle?!?), duration?
-
+		thumbnail := ThumbnailFrom(header.Header.Get("Content-Type"))
 		contentURL, err := storageURL.Parse("api/v1/files/" + header.Filename)
 		if err != nil {
 			log.Errorf("Invalid Content URL %s/files/%s", storageURL, header.Filename)
