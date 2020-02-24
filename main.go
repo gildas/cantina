@@ -56,6 +56,7 @@ func main() {
 		Log.Close()
 		os.Exit(-1)
 	}
+	storageURL, _ = storageURL.Parse("api/v1/files/")
 
 	// Creating the storage folder
 	if _, err := os.Stat(*storageRoot); os.IsNotExist(err) {

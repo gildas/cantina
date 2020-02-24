@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	cloud.google.com/go v0.53.0 // indirect
+	github.com/disintegration/imaging v1.6.2
 	github.com/gildas/go-core v0.4.1
 	github.com/gildas/go-errors v0.1.0
 	github.com/gildas/go-logger v1.3.4

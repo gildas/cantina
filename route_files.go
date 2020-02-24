@@ -56,18 +56,13 @@ func CreateFileHandler(storageRoot string, storageURL *url.URL) http.Handler {
 		}
 		log.Infof("Written %d bytes to %s", written, destination)
 
-		thumbnail := ThumbnailFrom(header.Header.Get("Content-Type"))
-		contentURL, err := storageURL.Parse("api/v1/files/" + header.Filename)
+		uploadInfo, err := UploadInfoFrom(storageURL, destination, header.Filename, header.Header.Get("Content-Type"), written)
 		if err != nil {
-			log.Errorf("Invalid Content URL %s/files/%s", storageURL, header.Filename)
+			log.Errorf("Failed to build upload info", err)
 			core.RespondWithError(w, http.StatusInternalServerError, err)
 			return
 		}
 
-		core.RespondWithJSON(w, http.StatusOK, UploadInfo{
-			ContentURL: contentURL,
-			MimeType:   header.Header.Get("Content-Type"), // TODO: What if this is empty?!?
-			Size:       written,
-		})
+		core.RespondWithJSON(w, http.StatusOK, uploadInfo)
 	})
 }
