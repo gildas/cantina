@@ -56,7 +56,7 @@ func CreateFileHandler(storageRoot string, storageURL *url.URL) http.Handler {
 		}
 		log.Infof("Written %d bytes to %s", written, destination)
 
-		uploadInfo, err := UploadInfoFrom(storageURL, destination, header.Filename, header.Header.Get("Content-Type"), written)
+		uploadInfo, err := UploadInfoFrom(log, storageURL, destination, header.Filename, header.Header.Get("Content-Type"), written)
 		if err != nil {
 			log.Errorf("Failed to build upload info", err)
 			core.RespondWithError(w, http.StatusInternalServerError, err)
