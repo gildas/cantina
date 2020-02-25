@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -62,6 +63,14 @@ func main() {
 	if _, err := os.Stat(*storageRoot); os.IsNotExist(err) {
 		if err = os.MkdirAll(*storageRoot, os.ModePerm); err != nil {
 			Log.Fatalf("Failed to create the storage folder", err)
+			Log.Close()
+			os.Exit(-1)
+		}
+	}
+	authRoot := filepath.Join(*storageRoot, ".auth")
+	if _, err := os.Stat(authRoot); os.IsNotExist(err) {
+		if err = os.MkdirAll(authRoot, os.ModePerm); err != nil {
+			Log.Fatalf("Failed to create the authorization folder", err)
 			Log.Close()
 			os.Exit(-1)
 		}
