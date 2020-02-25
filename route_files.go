@@ -21,7 +21,8 @@ func CreateFileHandler(storageRoot string, storageURL *url.URL) http.Handler {
 		log := logger.Must(logger.FromContext(r.Context()))
 		log.Debugf("Request Headers: %#v", r.Header)
 
-		err := r.ParseMultipartForm(500 * 1024 * 1024)
+		r.Body = http.MaxBytesReader(w, r.Body, 5 << 30) // uploads are limited to 5GB
+		err := r.ParseMultipartForm(5 << 20) // we can deal with 5MB in RAM
 		if err != nil {
 			log.Errorf("Failed to parse Multipart form", err)
 			core.RespondWithError(w, http.StatusBadRequest, err)
