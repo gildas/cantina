@@ -12,8 +12,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func FilesRoutes(router *mux.Router, apiRoot, storageRoot string, storageURL *url.URL, log *logger.Logger) {
-	router.Methods("POST").Path(apiRoot + "/files").Handler(log.HttpHandler()(CreateFileHandler(storageRoot, storageURL)))
+func FilesRoutes(router *mux.Router, apiRoot, storageRoot string, storageURL *url.URL, authority Authority, log *logger.Logger) {
+	router.Methods("POST").Path(apiRoot + "/files").Handler(log.HttpHandler()(authority.HttpHandler()(CreateFileHandler(storageRoot, storageURL))))
 }
 
 func CreateFileHandler(storageRoot string, storageURL *url.URL) http.Handler {

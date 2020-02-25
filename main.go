@@ -75,10 +75,11 @@ func main() {
 			os.Exit(-1)
 		}
 	}
+	authority := Authority{authRoot}
 
 	// Setting up web routes
 	router := mux.NewRouter().StrictSlash(true)
-	FilesRoutes(router, "/api/v1", *storageRoot, storageURL, Log)
+	FilesRoutes(router, "/api/v1", *storageRoot, storageURL, authority, Log)
 	router.PathPrefix("/api/v1/files").Handler(http.StripPrefix("/api/v1/files/", http.FileServer(StorageFileSystem{http.Dir(*storageRoot)})))
 	if *probePort == *port {
 		HealthRoutes(router, "/healthz", Log)
@@ -111,7 +112,7 @@ func main() {
 	// Setting up the Health server
 	var healthServer *http.Server
 
-	if *probePort > 0  && *probePort != *port {
+	if *probePort > 0 && *probePort != *port {
 		// Assigning Health routes
 		healthRouter := mux.NewRouter().StrictSlash(true)
 		HealthRoutes(healthRouter, "/healthz", Log)
