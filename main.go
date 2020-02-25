@@ -70,7 +70,7 @@ func main() {
 	// Setting up web routes
 	router := mux.NewRouter().StrictSlash(true)
 	FilesRoutes(router, "/api/v1", *storageRoot, storageURL, Log)
-	router.PathPrefix("/api/v1/files").Handler(http.StripPrefix("/api/v1/files/", http.FileServer(http.Dir(*storageRoot))))
+	router.PathPrefix("/api/v1/files").Handler(http.StripPrefix("/api/v1/files/", http.FileServer(StorageFileSystem{http.Dir(*storageRoot)})))
 	if *probePort == *port {
 		HealthRoutes(router, "/healthz", Log)
 	}
