@@ -64,7 +64,7 @@ func (info UploadInfo) getThumbnail(path string) (string, error) {
 	if err != nil {
 		return "", nil
 	}
-	thumbnail := imaging.Thumbnail(original, 64, 64, imaging.CatmullRom)
+	thumbnail := imaging.Thumbnail(original, 128, 128, imaging.CatmullRom)
 	thumbnailName := strings.Builder{}
 	thumbnailName.WriteString(strings.Split(filepath.Base(path), filepath.Ext(path))[0]) // we want the base name without the extension
 	thumbnailName.WriteString("-thumbnail.png")
