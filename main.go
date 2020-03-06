@@ -16,6 +16,7 @@ import (
 
 	"github.com/gildas/go-core"
 	"github.com/gildas/go-logger"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -32,6 +33,7 @@ func main() {
 		probePort   = flag.Int("probeport", core.GetEnvAsInt("PROBE_PORT", 0), "Start a Health web server for Kubernetes if > 0")
 		storageRoot = flag.String("storage-root", core.GetEnvAsString("STORAGE_ROOT", "/var/storage"), "the folder where all the files are stored")
 		storageURLX = flag.String("storage-url", core.GetEnvAsString("STORAGE_URL", ""), "the Storage URL for external access")
+		corsOrigins = flag.String("cors-origins", "*", "the comma-separated list of origins that are allowed to post (CORS)")
 		version     = flag.Bool("version", false, "prints the current version and exits")
 		wait        = flag.Duration("graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish")
 	)
@@ -77,13 +79,21 @@ func main() {
 	}
 	authority := Authority{authRoot}
 
-	// Setting up web routes
+	// Setting up web router
 	router := mux.NewRouter().StrictSlash(true)
+
 	FilesRoutes(router, "/api/v1", *storageRoot, storageURL, authority, Log)
 	router.PathPrefix("/api/v1/files").Handler(http.StripPrefix("/api/v1/files/", http.FileServer(StorageFileSystem{http.Dir(*storageRoot)})))
 	if *probePort == *port {
 		HealthRoutes(router, "/healthz", Log)
 	}
+
+	// Setting up CORS
+	cors := []handlers.CORSOption{
+		handlers.AllowedOrigins(strings.Split(*corsOrigins, ",")),
+		handlers.AllowedMethods([]string{http.MethodPost, http.MethodGet, http.MethodOptions}),
+	}
+	Log.Topic("cors").Infof("Allowed Origins: %v", strings.Split(*corsOrigins, ","))
 
 	// Initializing the web server
 	WebServer = &http.Server{
@@ -91,7 +101,7 @@ func main() {
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
-		Handler:      router,
+		Handler:      handlers.CORS(cors...)(router),
 	}
 
 	// Starting the web server
