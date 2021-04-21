@@ -34,6 +34,7 @@ func main() {
 		storageRoot = flag.String("storage-root", core.GetEnvAsString("STORAGE_ROOT", "/var/storage"), "the folder where all the files are stored")
 		storageURLX = flag.String("storage-url", core.GetEnvAsString("STORAGE_URL", ""), "the Storage URL for external access")
 		corsOrigins = flag.String("cors-origins", "*", "the comma-separated list of origins that are allowed to post (CORS)")
+		appendAPI   = flag.Bool("append-api-url", core.GetEnvAsBool("STORAGE_APPEND_API_URL", true), "if true, appends \"/api/v1/files\" to the storage URL")
 		version     = flag.Bool("version", false, "prints the current version and exits")
 		wait        = flag.Duration("graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish")
 	)
@@ -59,7 +60,9 @@ func main() {
 		Log.Close()
 		os.Exit(-1)
 	}
-	storageURL, _ = storageURL.Parse("api/v1/files/")
+	if *appendAPI {
+		storageURL, _ = storageURL.Parse("api/v1/files/")
+	}
 
 	// Creating the storage folder
 	if _, err := os.Stat(*storageRoot); os.IsNotExist(err) {
