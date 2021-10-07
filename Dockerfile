@@ -13,7 +13,7 @@ COPY . /
 RUN CGO_ENABLED=0 go build -o main .
 
 # ---
-FROM alpine:3.9 as system
+FROM alpine:3.11.12 as system
 LABEL maintainer="Gildas Cherruel <gildas.cherruel@genesys.com>"
 
 # Add CA Certificates and clean
