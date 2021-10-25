@@ -84,13 +84,11 @@ func main() {
 
 	// Setting up web router
 	router := mux.NewRouter().StrictSlash(true)
-
-	router.PathPrefix("/api/v1/files").Handler(http.StripPrefix("/api/v1/files/", http.FileServer(StorageFileSystem{http.Dir(*storageRoot)})))
-
 	apiRouter := router.PathPrefix("/api/v1").Subrouter()
-	apiRouter.Use(Log.HttpHandler())
-	apiRouter.Use(authority.HttpHandler())
+	apiRouter.Use(Log.HttpHandler(), authority.HttpHandler())
+
 	FilesRoutes(apiRouter, *storageRoot, storageURL)
+	router.PathPrefix("/api/v1/files").Handler(http.StripPrefix("/api/v1/files/", http.FileServer(StorageFileSystem{http.Dir(*storageRoot)})))
 
 	// Setting up CORS
 	cors := []handlers.CORSOption{
