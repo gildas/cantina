@@ -18,25 +18,25 @@ type UploadInfo struct {
 	ThumbnailURL *url.URL       `json:"-"`
 	Duration     time.Duration  `json:"-"`
 	MimeType     string         `json:"mimeType"`
-	Size         int64          `json:"size"`
+	Size         uint64         `json:"size"`
 	Logger       *logger.Logger `json:"-"`
 }
 
-func UploadInfoFrom(log *logger.Logger, storageURL *url.URL, path, filename, mimetype string, size int64) (*UploadInfo, error) {
+func UploadInfoFrom(log *logger.Logger, storageURL *url.URL, path string, metadata MetaInformation) (*UploadInfo, error) {
 	var err error
 	info := &UploadInfo{
-		MimeType: mimetype,
-		Size:     size,
-		Logger:   log.Child("uploadinfo", "create", "filename", filename),
+		MimeType: metadata.MimeType,
+		Size:     metadata.Size,
+		Logger:   log.Child("uploadinfo", "create", "filename", metadata.Filename),
 	}
 
-	info.ContentURL, err = storageURL.Parse(filename)
+	info.ContentURL, err = storageURL.Parse(metadata.Filename)
 	if err != nil {
 		return nil, err
 	}
 
 	switch {
-	case strings.HasPrefix(mimetype, "image"):
+	case strings.HasPrefix(metadata.MimeType, "image"):
 		// TODO: If the file is an image, calculate a thumbnail
 		thumbnail, err := info.getThumbnail(path)
 		if err != nil {
@@ -45,13 +45,13 @@ func UploadInfoFrom(log *logger.Logger, storageURL *url.URL, path, filename, mim
 		} else {
 			info.ThumbnailURL, _ = storageURL.Parse(thumbnail)
 		}
-	case strings.HasPrefix(mimetype, "audio"):
+	case strings.HasPrefix(metadata.MimeType, "audio"):
 		info.ThumbnailURL, _ = url.Parse("https://cdn1.iconfinder.com/data/icons/ios-11-glyphs/30/circled_play-64.png")
 		// TODO: If the file is an audio, calculate its duration in seconds
-	case strings.HasPrefix(mimetype, "video"):
+	case strings.HasPrefix(metadata.MimeType, "video"):
 		info.ThumbnailURL, _ = url.Parse("https://cdn2.iconfinder.com/data/icons/flat-ui-icons-24-px/24/video-24-64.png")
 		// TODO: If the file is a video?!? thumbnail (with an icon in the middle?!?), duration?
-	case mimetype == "application/pdf":
+	case metadata.MimeType == "application/pdf":
 		fallthrough
 	default:
 		info.ThumbnailURL, _ = url.Parse("https://cdn1.iconfinder.com/data/icons/material-core/19/file-download-64.png")
@@ -76,14 +76,14 @@ func (info UploadInfo) MarshalJSON() ([]byte, error) {
 	type surrogate UploadInfo
 	data, err := json.Marshal(struct {
 		surrogate
-		C *core.URL     `json:"contentUrl"`
-		T *core.URL     `json:"thumbnailUrl,omitempty"`
-		D core.Duration `json:"duration,omitempty"`
+		ContentURL   *core.URL     `json:"contentUrl"`
+		ThumbnailURL *core.URL     `json:"thumbnailUrl,omitempty"`
+		Duration     core.Duration `json:"duration,omitempty"`
 	}{
-		C:         (*core.URL)(info.ContentURL),
-		T:         (*core.URL)(info.ThumbnailURL),
-		D:         (core.Duration)(info.Duration),
-		surrogate: surrogate(info),
+		ContentURL:   (*core.URL)(info.ContentURL),
+		ThumbnailURL: (*core.URL)(info.ThumbnailURL),
+		Duration:     (core.Duration)(info.Duration),
+		surrogate:    surrogate(info),
 	})
 	return data, errors.JSONMarshalError.Wrap(err)
 }

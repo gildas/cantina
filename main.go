@@ -54,6 +54,7 @@ func main() {
 	Log.Infof("Starting %s v. %s", APP, Version())
 	Log.Infof("Log Destination: %s", Log)
 	Log.Infof("Webserver Port=%d, Health Port=%d", *port, *probePort)
+	Log.Infof("Storage location: %s", *storageRoot)
 
 	// Validating the storage URL
 	storageURL, err := url.Parse(*storageURLX)
@@ -74,6 +75,14 @@ func main() {
 			os.Exit(-1)
 		}
 	}
+	metaRoot := filepath.Join(*storageRoot, ".meta")
+	if _, err := os.Stat(metaRoot); os.IsNotExist(err) {
+		if err = os.MkdirAll(metaRoot, os.ModePerm); err != nil {
+			Log.Fatalf("Failed to create the meta-information folder", err)
+			Log.Close()
+			os.Exit(-1)
+		}
+	}
 	authRoot := filepath.Join(*storageRoot, ".auth")
 	if _, err := os.Stat(authRoot); os.IsNotExist(err) {
 		if err = os.MkdirAll(authRoot, os.ModePerm); err != nil {
@@ -86,6 +95,7 @@ func main() {
 
 	// Create the Config object
 	config := Config{
+		MetaRoot:    metaRoot,
 		StorageRoot: *storageRoot,
 		StorageURL:  *storageURL,
 	}

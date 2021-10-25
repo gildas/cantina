@@ -63,7 +63,14 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Infof("Written %d bytes to %s", written, destination)
 
-	uploadInfo, err := UploadInfoFrom(log, &config.StorageURL, destination, header.Filename, header.Header.Get("Content-Type"), written)
+	metadata, err := CreateMetaInformation(config, header.Filename, header.Header.Get("Content-Type"), uint64(written))
+	if err != nil {
+		log.Errorf("Failed to build metadata info", err)
+		core.RespondWithError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	uploadInfo, err := UploadInfoFrom(log, &config.StorageURL, destination, metadata)
 	if err != nil {
 		log.Errorf("Failed to build upload info", err)
 		core.RespondWithError(w, http.StatusInternalServerError, err)
@@ -74,6 +81,7 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
+	var err error
 	log := logger.Must(logger.FromContext(r.Context()))
 	config := core.Must(ConfigFromContext(r.Context())).(Config)
 	log.Debugf("Request Headers: %#v", r.Header)
@@ -86,23 +94,8 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	extension := path.Ext(filename)
-	basename := strings.TrimSuffix(path.Base(filename), extension)
-	destination := path.Join(config.StorageRoot, path.Dir(filename), basename + "-thumbnail" + extension)
-	if err := os.Remove(destination); err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			if errors.Is(err, fs.ErrPermission) {
-				log.Errorf("Not enough permission to delete file %s", destination, err)
-			}
-			log.Errorf("Error while deleting %s", destination, err)
-		}
-		log.Errorf("Error while deleting %s", destination, err)
-		core.RespondWithError(w, http.StatusInternalServerError, errors.UnknownError.With(fmt.Sprintf("Cannot delete %s, error: %s", filename, err)))
-		return
-	}
-
-	destination = path.Join(config.StorageRoot, filename)
-	if err := os.Remove(destination); err != nil {
+	destination := path.Join(config.StorageRoot, filename)
+	if err = os.Remove(destination); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			log.Errorf("File %s was not found", filename, err)
 			core.RespondWithError(w, http.StatusNotFound, errors.NotFound.With("file", filename))
@@ -116,6 +109,30 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 		core.RespondWithError(w, http.StatusInternalServerError, errors.UnknownError.With(filename))
 		return
 	}
+
+	metadata, err := FindMetaInformation(config, filename)
+	if err == nil {
+		err = metadata.Delete()
+		if err != nil {
+			log.Errorf("Failed to delete meta information", err)
+		}
+	}
+
+	extension := path.Ext(filename)
+	basename := strings.TrimSuffix(path.Base(filename), extension)
+	destination = path.Join(config.StorageRoot, path.Dir(filename), basename + "-thumbnail.png")
+	if err := os.Remove(destination); err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			if errors.Is(err, fs.ErrPermission) {
+				log.Errorf("Not enough permission to delete file %s", destination, err)
+			}
+			log.Errorf("Error while deleting %s", destination, err)
+		}
+		log.Errorf("Error while deleting %s", destination, err)
+		core.RespondWithError(w, http.StatusInternalServerError, errors.UnknownError.With(fmt.Sprintf("Cannot delete %s, error: %s", filename, err)))
+		return
+	}
+
 	log.Infof("File %s was deleted successfully", filename)
 	w.WriteHeader(http.StatusNoContent)
 }
