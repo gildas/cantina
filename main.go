@@ -18,6 +18,7 @@ import (
 	"github.com/gildas/go-logger"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 )
 
 // Log is the application Logger
@@ -27,6 +28,7 @@ var Log *logger.Logger
 var WebServer *http.Server
 
 func main() {
+	_ = godotenv.Load()
 	// Analyzing the command line arguments
 	var (
 		port        = flag.Int("port", core.GetEnvAsInt("PORT", 80), "the TCP port for which the server listens to")
