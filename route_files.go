@@ -13,10 +13,10 @@ import (
 )
 
 func FilesRoutes(router *mux.Router, storageRoot string, storageURL *url.URL) {
-	router.Methods("POST").Path("/files").Handler(CreateFileHandler(storageRoot, storageURL))
+	router.Methods("POST").Path("/files").Handler(createFileHandler(storageRoot, storageURL))
 }
 
-func CreateFileHandler(storageRoot string, storageURL *url.URL) http.Handler {
+func createFileHandler(storageRoot string, storageURL *url.URL) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log := logger.Must(logger.FromContext(r.Context()))
 		log.Debugf("Request Headers: %#v", r.Header)
