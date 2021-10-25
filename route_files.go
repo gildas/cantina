@@ -63,7 +63,7 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Infof("Written %d bytes to %s", written, destination)
 
-	metadata, err := CreateMetaInformation(config, header.Filename, header.Header.Get("Content-Type"), uint64(written))
+	metadata, err := CreateMetaInformation(config.WithRequest(r), header.Filename, header.Header.Get("Content-Type"), uint64(written))
 	if err != nil {
 		log.Errorf("Failed to build metadata info", err)
 		core.RespondWithError(w, http.StatusInternalServerError, err)

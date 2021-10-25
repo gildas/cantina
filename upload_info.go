@@ -17,6 +17,7 @@ type UploadInfo struct {
 	ContentURL   *url.URL       `json:"-"`
 	ThumbnailURL *url.URL       `json:"-"`
 	Duration     time.Duration  `json:"-"`
+	DeleteAt     *time.Time     `json:"-"`
 	MimeType     string         `json:"mimeType"`
 	Size         uint64         `json:"size"`
 	Logger       *logger.Logger `json:"-"`
@@ -27,6 +28,7 @@ func UploadInfoFrom(log *logger.Logger, storageURL *url.URL, path string, metada
 	info := &UploadInfo{
 		MimeType: metadata.MimeType,
 		Size:     metadata.Size,
+		DeleteAt: metadata.DeleteAt,
 		Logger:   log.Child("uploadinfo", "create", "filename", metadata.Filename),
 	}
 
@@ -79,10 +81,12 @@ func (info UploadInfo) MarshalJSON() ([]byte, error) {
 		ContentURL   *core.URL     `json:"contentUrl"`
 		ThumbnailURL *core.URL     `json:"thumbnailUrl,omitempty"`
 		Duration     core.Duration `json:"duration,omitempty"`
+		DeleteAt     *core.Time    `json:"deleteAt,omitempty"`
 	}{
 		ContentURL:   (*core.URL)(info.ContentURL),
 		ThumbnailURL: (*core.URL)(info.ThumbnailURL),
 		Duration:     (core.Duration)(info.Duration),
+		DeleteAt:     (*core.Time)(info.DeleteAt),
 		surrogate:    surrogate(info),
 	})
 	return data, errors.JSONMarshalError.Wrap(err)

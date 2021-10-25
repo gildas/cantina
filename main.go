@@ -37,6 +37,7 @@ func main() {
 		storageURLX = flag.String("storage-url", core.GetEnvAsString("STORAGE_URL", ""), "the Storage URL for external access")
 		corsOrigins = flag.String("cors-origins", "*", "the comma-separated list of origins that are allowed to post (CORS)")
 		appendAPI   = flag.Bool("append-api-url", core.GetEnvAsBool("STORAGE_APPEND_API_URL", true), "if true, appends \"/api/v1/files\" to the storage URL")
+		purgeAfter  = flag.Duration("purge-after", core.GetEnvAsDuration("PURGE_AFTER", 0 * time.Second), "the duration after which files are purged. Default: never")
 		version     = flag.Bool("version", false, "prints the current version and exits")
 		wait        = flag.Duration("graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish")
 	)
@@ -55,6 +56,11 @@ func main() {
 	Log.Infof("Log Destination: %s", Log)
 	Log.Infof("Webserver Port=%d, Health Port=%d", *port, *probePort)
 	Log.Infof("Storage location: %s", *storageRoot)
+	if *purgeAfter == 0 {
+		Log.Infof("Default purge: never")
+	} else {
+		Log.Infof("Default purge: %s", *purgeAfter)
+	}
 
 	// Validating the storage URL
 	storageURL, err := url.Parse(*storageURLX)
@@ -96,6 +102,7 @@ func main() {
 	// Create the Config object
 	config := Config{
 		MetaRoot:    metaRoot,
+		PurgeAfter:  *purgeAfter,
 		StorageRoot: *storageRoot,
 		StorageURL:  *storageURL,
 	}
