@@ -87,9 +87,6 @@ func main() {
 
 	FilesRoutes(router, "/api/v1", *storageRoot, storageURL, authority, Log)
 	router.PathPrefix("/api/v1/files").Handler(http.StripPrefix("/api/v1/files/", http.FileServer(StorageFileSystem{http.Dir(*storageRoot)})))
-	if *probePort == *port {
-		HealthRoutes(router, "/healthz", Log)
-	}
 
 	// Setting up CORS
 	cors := []handlers.CORSOption{
@@ -97,6 +94,50 @@ func main() {
 		handlers.AllowedMethods([]string{http.MethodPost, http.MethodGet, http.MethodOptions}),
 	}
 	Log.Topic("cors").Infof("Allowed Origins: %v", strings.Split(*corsOrigins, ","))
+
+	// Setting up the Health server
+	var healthServer *http.Server
+
+	if *probePort > 0 {
+		if *probePort != *port {
+			// Assigning Health routes
+			healthRouter := mux.NewRouter().StrictSlash(true).PathPrefix("/healthz").Subrouter()
+			if len(core.GetEnvAsString("TRACE_PROBE", "")) > 0 {
+				healthRouter.Use(Log.HttpHandler())
+			}
+			HealthRoutes(healthRouter)
+
+			// Initializing the Health Server
+			healthServer = &http.Server{
+				Addr:         fmt.Sprintf("0.0.0.0:%d", *probePort),
+				WriteTimeout: time.Second * 15,
+				ReadTimeout:  time.Second * 15,
+				IdleTimeout:  time.Second * 60,
+				Handler:      healthRouter,
+			}
+
+			// Starting the health server
+			go func() {
+				log := Log.Child("healthserver", "run")
+
+				log.Infof("Starting Health server on port %d", *probePort)
+				if err := healthServer.ListenAndServe(); err != nil {
+					if err.Error() != "http: Server closed" {
+						log.Fatalf("Failed to start the Health server on port: %d", *probePort, err)
+					}
+				}
+			}()
+		} else {
+			Log.Topic("healthserver").Scope("config").Infof("Health Server will run on the same port as the Web Server: (probe port: %d)", *probePort)
+			healthRouter := router.PathPrefix("/healthz").Subrouter()
+			if len(core.GetEnvAsString("TRACE_PROBE", "")) > 0 {
+				healthRouter.Use(Log.HttpHandler())
+			}
+			HealthRoutes(healthRouter)
+		}
+	} else {
+		Log.Topic("healthserver").Scope("config").Infof("Health Server will not run (probe port: %d)", *probePort)
+	}
 
 	// Initializing the web server
 	WebServer = &http.Server{
@@ -112,6 +153,28 @@ func main() {
 		log := Log.Child("webserver", "run")
 
 		log.Infof("Starting WEB server on port %d", *port)
+		log.Infof("Serving routes:")
+		_ = router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+			message := strings.Builder{}
+			args := []interface{}{}
+
+			if methods, err := route.GetMethods(); err == nil {
+				message.WriteString("%s ")
+				args = append(args, strings.Join(methods, ","))
+			} else {
+				return nil
+			}
+			if path, err := route.GetPathTemplate(); err == nil {
+				message.WriteString("%s ")
+				args = append(args, path)
+			}
+			if path, err := route.GetPathRegexp(); err == nil {
+				message.WriteString("%s ")
+				args = append(args, path)
+			}
+			log.Infof(message.String(), args...)
+			return nil
+		})
 		atomic.StoreInt32(&HealthHTTP, 1)
 		// TODO TLS
 		if err := WebServer.ListenAndServe(); err != nil {
@@ -121,40 +184,6 @@ func main() {
 			}
 		}
 	}()
-
-	// Setting up the Health server
-	var healthServer *http.Server
-
-	if *probePort > 0 && *probePort != *port {
-		// Assigning Health routes
-		healthRouter := mux.NewRouter().StrictSlash(true)
-		HealthRoutes(healthRouter, "/healthz", Log)
-
-		// Initializing the Health Server
-		healthServer = &http.Server{
-			Addr:         fmt.Sprintf("0.0.0.0:%d", *probePort),
-			WriteTimeout: time.Second * 15,
-			ReadTimeout:  time.Second * 15,
-			IdleTimeout:  time.Second * 60,
-			Handler:      healthRouter,
-		}
-
-		// Starting the server
-		go func() {
-			log := Log.Child("healthserver", "run")
-
-			log.Infof("Starting Health server on port %d", *probePort)
-			if err := healthServer.ListenAndServe(); err != nil {
-				if err.Error() != "http: Server closed" {
-					log.Fatalf("Failed to start the Health server on port: %d", *probePort, err)
-				}
-			}
-		}()
-	} else if *probePort == *port {
-		Log.Topic("healthserver").Scope("config").Infof("Health Server will run on the same port as the Web Server: (probe port: %d)", *probePort)
-	} else {
-		Log.Topic("healthserver").Scope("config").Infof("Health Server will not run (probe port: %d)", *probePort)
-	}
 
 	// Accepting shutdowns from SIGINT (^C) and SIGTERM (docker, heroku)
 	interruptChannel := make(chan os.Signal, 1)
@@ -171,7 +200,7 @@ func main() {
 		Log.Infof("Application is stopping (%+v)", sig)
 
 		// Stopping the Health server
-		if *probePort > 0 {
+		if *probePort > 0 && *probePort != *port {
 			Log.Debugf("Health server is shutting down")
 			healthServer.SetKeepAlivesEnabled(false)
 			_ = healthServer.Shutdown(context)
