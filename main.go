@@ -49,7 +49,7 @@ func main() {
 	Log = logger.Create(APP)
 	defer Log.Flush()
 	Log.Infof(strings.Repeat("-", 80))
-	Log.Infof("Starting %s v. %s", APP, VERSION)
+	Log.Infof("Starting %s v. %s", APP, Version())
 	Log.Infof("Log Destination: %s", Log)
 	Log.Infof("Webserver Port=%d, Health Port=%d", *port, *probePort)
 
