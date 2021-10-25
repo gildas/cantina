@@ -66,7 +66,7 @@ func main() {
 		storageURL, _ = storageURL.Parse("api/v1/files/")
 	}
 
-	// Creating the storage folder
+	// Creating the folders
 	if _, err := os.Stat(*storageRoot); os.IsNotExist(err) {
 		if err = os.MkdirAll(*storageRoot, os.ModePerm); err != nil {
 			Log.Fatalf("Failed to create the storage folder", err)
@@ -84,12 +84,18 @@ func main() {
 	}
 	authority := Authority{authRoot}
 
+	// Create the Config object
+	config := Config{
+		StorageRoot: *storageRoot,
+		StorageURL:  *storageURL,
+	}
+
 	// Setting up web router
 	router := mux.NewRouter().StrictSlash(true)
 	apiRouter := router.PathPrefix("/api/v1").Subrouter()
-	apiRouter.Use(Log.HttpHandler(), authority.HttpHandler())
+	apiRouter.Use(Log.HttpHandler(), authority.HttpHandler(), config.HttpHandler())
 
-	FilesRoutes(apiRouter, *storageRoot, storageURL)
+	FilesRoutes(apiRouter)
 	router.PathPrefix("/api/v1/files").Handler(http.StripPrefix("/api/v1/files/", http.FileServer(StorageFileSystem{http.Dir(*storageRoot)})))
 
 	// Setting up CORS
