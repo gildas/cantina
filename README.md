@@ -45,3 +45,25 @@ Invoke-RestMethod https://cantina/api/v1/files `
   -Headers @{ 'X-Key' = '12345678' } `
   -Form @{ file = Get-Item ./picture.png }
 ```
+
+## Deleting
+
+Deleting stuff using [httpie](https://httpie.io):
+
+```console
+http DELETE http://cantina/api/v1/files/picture.png X-Key:12345678
+```
+
+If you prefer Good Ol' Curl:
+```console
+curl -H 'X-key:12345678' -X DELETE https://cantina/upload/picture.png
+```
+
+Or with PowerShell:
+```posh
+Invoke-RestMethod https://cantina/api/v1/files/picture.png `
+  -Method Delete `
+  -Headers @{ 'X-Key' = '12345678' } `
+```
+
+**Note:** Thumbnail of the file is also deleted, though no error is returned if deletion failed.
