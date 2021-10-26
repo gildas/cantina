@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -31,15 +32,16 @@ func main() {
 	_ = godotenv.Load()
 	// Analyzing the command line arguments
 	var (
-		port        = flag.Int("port", core.GetEnvAsInt("PORT", 80), "the TCP port for which the server listens to")
-		probePort   = flag.Int("probeport", core.GetEnvAsInt("PROBE_PORT", 0), "Start a Health web server for Kubernetes if > 0")
-		storageRoot = flag.String("storage-root", core.GetEnvAsString("STORAGE_ROOT", "/var/storage"), "the folder where all the files are stored")
-		storageURLX = flag.String("storage-url", core.GetEnvAsString("STORAGE_URL", ""), "the Storage URL for external access")
-		corsOrigins = flag.String("cors-origins", "*", "the comma-separated list of origins that are allowed to post (CORS)")
-		appendAPI   = flag.Bool("append-api-url", core.GetEnvAsBool("STORAGE_APPEND_API_URL", true), "if true, appends \"/api/v1/files\" to the storage URL")
-		purgeAfter  = flag.Duration("purge-after", core.GetEnvAsDuration("PURGE_AFTER", 0 * time.Second), "the duration after which files are purged. Default: never")
-		version     = flag.Bool("version", false, "prints the current version and exits")
-		wait        = flag.Duration("graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish")
+		port           = flag.Int("port", core.GetEnvAsInt("PORT", 80), "the TCP port for which the server listens to")
+		probePort      = flag.Int("probeport", core.GetEnvAsInt("PROBE_PORT", 0), "Start a Health web server for Kubernetes if > 0")
+		storageRoot    = flag.String("storage-root", core.GetEnvAsString("STORAGE_ROOT", "/var/storage"), "the folder where all the files are stored")
+		storageURLX    = flag.String("storage-url", core.GetEnvAsString("STORAGE_URL", ""), "the Storage URL for external access")
+		corsOrigins    = flag.String("cors-origins", "*", "the comma-separated list of origins that are allowed to post (CORS)")
+		appendAPI      = flag.Bool("append-api-url", core.GetEnvAsBool("STORAGE_APPEND_API_URL", true), "if true, appends \"/api/v1/files\" to the storage URL")
+		purgeFrequency = flag.Duration("purge-frequency", core.GetEnvAsDuration("PURGE_FREQUENCY", 1 * time.Minute), "the frequency the files are purged. Default: 1 minute")
+		purgeAfter     = flag.Duration("purge-after", core.GetEnvAsDuration("PURGE_AFTER", 0 * time.Second), "the duration after which files are purged. Default: never")
+		version        = flag.Bool("version", false, "prints the current version and exits")
+		wait           = flag.Duration("graceful-timeout", time.Second*15, "the duration for which the server gracefully wait for existing connections to finish")
 	)
 	flag.Parse()
 
@@ -101,11 +103,16 @@ func main() {
 
 	// Create the Config object
 	config := Config{
-		MetaRoot:    metaRoot,
-		PurgeAfter:  *purgeAfter,
-		StorageRoot: *storageRoot,
-		StorageURL:  *storageURL,
+		MetaRoot:       metaRoot,
+		PurgeAfter:     *purgeAfter,
+		PurgeFrequency: *purgeFrequency,
+		StorageRoot:    *storageRoot,
+		StorageURL:     *storageURL,
 	}
+
+	// Starting the Purge Job
+	var waitForJobs sync.WaitGroup
+	_, stopPurge := StartPurge(config, &waitForJobs, Log)
 
 	// Setting up web router
 	router := mux.NewRouter().StrictSlash(true)
@@ -225,6 +232,13 @@ func main() {
 		defer cancel()
 
 		Log.Infof("Application is stopping (%+v)", sig)
+
+		// Stopping the Purge Job
+		close(stopPurge)
+
+		// Wait for all jobs to finish
+		waitForJobs.Wait()
+		Log.Infof("All job have stopped")
 
 		// Stopping the Health server
 		if *probePort > 0 && *probePort != *port {

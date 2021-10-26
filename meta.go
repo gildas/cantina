@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gildas/go-core"
@@ -45,22 +47,44 @@ func CreateMetaInformation(config Config, filename string, mimetype string, size
 	return metadata, nil
 }
 
-// FindMetaInformation find MetaInformation about the given filename
-func FindMetaInformation(config Config, filename string) (metadata MetaInformation, err error) {
-	payload, err := os.ReadFile(MetaInformation{Filename: filename, config: config}.Path())
-	if err != nil {
-		return metadata, errors.NotFound.With(filename).(errors.Error).Wrap(err)
+// NewMetaInformation find MetaInformation about the given filename or assing a new one
+func NewMetaInformation(config Config, filename string) *MetaInformation {
+	metadata := &MetaInformation{}
+	if payload, err := os.ReadFile(MetaInformation{Filename: filename, config: config}.Path()); err == nil {
+		err = json.Unmarshal(payload, &metadata)
+		if err == nil {
+			metadata.config = config
+			return metadata
+		}
 	}
-	err = json.Unmarshal(payload, &metadata)
-	if err == nil {
-		metadata.config = config
+	return &MetaInformation{
+		Filename: filename,
+		config:   config,
 	}
-	return
 }
 
 // Delete deletes the file holding the MetaInformation
 func (metadata MetaInformation) Delete() error {
-	return os.Remove(metadata.Path());
+	err := os.Remove(metadata.Path())
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+// DeleteContent deletes all files handled by this MetaInformation
+func (metadata MetaInformation) DeleteContent() error {
+	destination := filepath.Join(metadata.config.StorageRoot, metadata.Filename)
+	if err := os.Remove(destination); err != nil {
+		return err
+	}
+	// delete the thumbnail (if any)
+	basename := strings.TrimSuffix(filepath.Base(metadata.Filename), filepath.Ext(metadata.Filename))
+	destination = filepath.Join(metadata.config.StorageRoot, filepath.Dir(metadata.Filename), basename + "-thumbnail.png")
+	if err := os.Remove(destination); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return nil
 }
 
 // Path tells the Path of the file holding the MetaInformation

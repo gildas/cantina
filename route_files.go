@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/gildas/go-core"
 	"github.com/gildas/go-errors"
@@ -81,7 +79,6 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
-	var err error
 	log := logger.Must(logger.FromContext(r.Context()))
 	config := core.Must(ConfigFromContext(r.Context())).(Config)
 	log.Debugf("Request Headers: %#v", r.Header)
@@ -94,8 +91,8 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	destination := path.Join(config.StorageRoot, filename)
-	if err = os.Remove(destination); err != nil {
+	metadata := NewMetaInformation(config, filename)
+	if err := metadata.DeleteContent(); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			log.Errorf("File %s was not found", filename, err)
 			core.RespondWithError(w, http.StatusNotFound, errors.NotFound.With("file", filename))
@@ -105,32 +102,13 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 			log.Errorf("Not enough permission to delete file %s", filename, err)
 			core.RespondWithError(w, http.StatusForbidden, errors.HTTPForbidden.With(filename))
 		}
-		log.Errorf("Error while deleting %s", destination, err)
+		log.Errorf("Error while deleting %s", filename, err)
 		core.RespondWithError(w, http.StatusInternalServerError, errors.UnknownError.With(filename))
 		return
 	}
-
-	metadata, err := FindMetaInformation(config, filename)
-	if err == nil {
-		err = metadata.Delete()
-		if err != nil {
-			log.Errorf("Failed to delete meta information", err)
-		}
-	}
-
-	extension := path.Ext(filename)
-	basename := strings.TrimSuffix(path.Base(filename), extension)
-	destination = path.Join(config.StorageRoot, path.Dir(filename), basename + "-thumbnail.png")
-	if err := os.Remove(destination); err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			if errors.Is(err, fs.ErrPermission) {
-				log.Errorf("Not enough permission to delete file %s", destination, err)
-			}
-			log.Errorf("Error while deleting %s", destination, err)
-		}
-		log.Errorf("Error while deleting %s", destination, err)
-		core.RespondWithError(w, http.StatusInternalServerError, errors.UnknownError.With(fmt.Sprintf("Cannot delete %s, error: %s", filename, err)))
-		return
+	
+	if err := metadata.Delete(); err != nil {
+		log.Errorf("Failed to delete meta information", err)
 	}
 
 	log.Infof("File %s was deleted successfully", filename)

@@ -46,6 +46,14 @@ Invoke-RestMethod https://cantina/api/v1/files `
   -Form @{ file = Get-Item ./picture.png }
 ```
 
+You can also set a time for the file to be automatically deleted (purged):
+
+- The form value `purgeAfter` will delete the file after the given delay.  
+  Synonyms: purgeIn, deleteAfter, deleteIn.
+- The form value `purgeOn` will delete the file on the give datetime.  
+  Synonyms: purgeAt, deleteAt
+
+
 ## Deleting
 
 Deleting stuff using [httpie](https://httpie.io):
