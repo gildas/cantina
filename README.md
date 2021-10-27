@@ -75,8 +75,14 @@ You can also set a time for the file to be automatically deleted (purged):
 For example:
 
 ```console
-http --form POST http://cantina/api/v1/files X-Key:12345678 file@~/Downloads/picture.png purgeIn=1h
-curl -H 'X-key:12345678' -F 'file=@myfile-0.0.1.min.js' -F 'purgeIn=1h' https://cantina/upload
+http --form POST http://cantina/api/v1/files \
+  X-Key:12345678 \
+  file@~/Downloads/picture.png \
+  purgeIn=1h
+curl -H 'X-key:12345678' \
+  -F 'file=@myfile-0.0.1.min.js' \
+  -F 'purgeIn=1h' \
+  https://cantina/upload
 ```
 
 ```posh
