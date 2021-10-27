@@ -15,14 +15,9 @@ import (
 var HealthHTTP int32
 
 // HealthRoutes fills the router with routes for health
-func HealthRoutes(router *mux.Router, apiroot string, log *logger.Logger) {
-	if len(core.GetEnvAsString("TRACE_PROBE", "")) > 0 {
-		router.Methods("GET").Path(apiroot + "/liveness").Handler(log.HttpHandler()(healthLivenessHandler()))
-		router.Methods("GET").Path(apiroot + "/readiness").Handler(log.HttpHandler()(healthReadinessHandler()))
-	} else {
-		router.Methods("GET").Path(apiroot + "/liveness").Handler(healthLivenessHandler())
-		router.Methods("GET").Path(apiroot + "/readiness").Handler(healthReadinessHandler())
-	}
+func HealthRoutes(router *mux.Router) {
+	router.Methods("GET").Path("/liveness").Handler(healthLivenessHandler())
+	router.Methods("GET").Path("/readiness").Handler(healthReadinessHandler())
 }
 
 // healthLivenessHandler processes requests that check the health of this app (e.g.: Kubernetes)
@@ -67,4 +62,3 @@ func healthReadinessHandler() http.Handler {
 		core.RespondWithJSON(w, http.StatusOK, struct{}{})
 	})
 }
-
