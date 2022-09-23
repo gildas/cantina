@@ -229,9 +229,12 @@ __start__: stop $(BIN_DIR)/$(GOOS)/$(PROJECT) | $(TMP_DIR) $(LOG_DIR); $(info $(
 ifeq ($(BRANCH), master)
 $(TMP_DIR)/__docker_$(BRANCH)__: $(GOFILES) $(ASSETS) $(DOCKER_FILE) | $(TMP_DIR); $(info $(M) Building the Docker Image...)
 	$(info $(M)  Image: $(DOCKER_IMAGE), Version: $(DOCKER_IMAGE_VERSION), Tag: $(DOCKER_IMAGE_TAG), Branch: $(BRANCH))
-	$Q $(DOCKER) build \
+	$Q DOCKER_BUILDKIT=1 $(DOCKER) build \
 		$(DOCKER_FLAGS) \
 		--build-arg GOPROXY=$(DOCKER_GOPROXY) \
+		--label "org.opencontainers.image.version"="$(DOCKER_IMAGE_VERSION)" \
+		--label "org.opencontainers.image.revision"="$(COMMIT)" \
+		--label "org.opencontainers.image.created"="$(NOW)" \
 		-t $(DOCKER_IMAGE):$(DOCKER_IMAGE_VERSION) .
 	$Q $(DOCKER) tag $(DOCKER_IMAGE):$(DOCKER_IMAGE_VERSION) $(DOCKER_IMAGE):$(DOCKER_IMAGE_VERSION_MIN)
 	$Q $(DOCKER) tag $(DOCKER_IMAGE):$(DOCKER_IMAGE_VERSION) $(DOCKER_IMAGE):$(DOCKER_IMAGE_VERSION_MAJ)
@@ -240,9 +243,13 @@ $(TMP_DIR)/__docker_$(BRANCH)__: $(GOFILES) $(ASSETS) $(DOCKER_FILE) | $(TMP_DIR
 else
 $(TMP_DIR)/__docker_$(BRANCH)__: $(GOFILES) $(ASSETS) $(DOCKER_FILE) build | $(TMP_DIR); $(info $(M) Building the Docker Image...)
 	$(info $(M)  Image: $(DOCKER_IMAGE), Version: $(DOCKER_IMAGE_VERSION), Tag: $(DOCKER_IMAGE_TAG), Branch: $(BRANCH))
-	$Q $(DOCKER) build \
+	$Q DOCKER_BUILDKIT=1 $(DOCKER) build \
 		$(DOCKER_FLAGS) \
 		-f $(DOCKER_FILE) \
+		-f "$(DOCKER_FILE)" \
+		--label "org.opencontainers.image.version"="$(DOCKER_IMAGE_VERSION)" \
+		--label "org.opencontainers.image.revision"="$(COMMIT)" \
+		--label "org.opencontainers.image.created"="$(NOW)" \
 		-t $(DOCKER_IMAGE):$(DOCKER_IMAGE_VERSION) .
 	$Q $(DOCKER) tag $(DOCKER_IMAGE):$(DOCKER_IMAGE_VERSION) $(DOCKER_IMAGE):$(DOCKER_IMAGE_TAG)
 	$Q touch $@

@@ -14,7 +14,10 @@ RUN CGO_ENABLED=0 go build -o main .
 
 # ---
 FROM alpine:3.15 as system
-LABEL maintainer="Gildas Cherruel <gildas.cherruel@genesys.com>"
+LABEL org.opencontainers.image.title="cantina"
+LABEL org.opencontainers.image.description="Very simple REST based File Storage Server"
+LABEL org.opencontainers.image.authors="Gildas Cherruel <gildas.cherruel@genesys.com>"
+LABEL org.opencontainers.image.licenses="MIT"
 
 # Add CA Certificates and clean
 RUN apk update && apk upgrade \
