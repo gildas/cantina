@@ -22,7 +22,7 @@ func FilesRoutes(router *mux.Router) {
 
 func createFileHandler(w http.ResponseWriter, r *http.Request) {
 	log := logger.Must(logger.FromContext(r.Context()))
-	config := core.Must(ConfigFromContext(r.Context())).(Config)
+	config := core.Must(ConfigFromContext(r.Context()))
 	log.Debugf("Request Headers: %#v", r.Header)
 
 	r.Body = http.MaxBytesReader(w, r.Body, 5 << 30) // uploads are limited to 5GB
@@ -80,7 +80,7 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 
 func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 	log := logger.Must(logger.FromContext(r.Context()))
-	config := core.Must(ConfigFromContext(r.Context())).(Config)
+	config := core.Must(ConfigFromContext(r.Context()))
 	log.Debugf("Request Headers: %#v", r.Header)
 
 	params := mux.Vars(r)

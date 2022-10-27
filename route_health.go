@@ -44,12 +44,12 @@ func healthReadinessHandler() http.Handler {
 
 			if log, err = logger.FromContext(r.Context()); err != nil {
 				Log.Errorf("Failed to retrieve logger from Context", err)
-				log = logger.CreateWithStream(APP, &logger.NilStream{})
+				log = logger.Create(APP, &logger.NilStream{})
 			} else {
 				log = log.Child("probe", "readiness")
 			}
 		} else {
-			log = logger.CreateWithStream(APP, &logger.NilStream{})
+			log = logger.Create(APP, &logger.NilStream{})
 		}
 
 		if atomic.LoadInt32(&HealthHTTP) == 0 {
