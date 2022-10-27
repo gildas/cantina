@@ -12,6 +12,7 @@ import (
 )
 
 type key int
+
 const contextKey key = iota
 
 type Config struct {

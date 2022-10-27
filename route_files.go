@@ -26,8 +26,8 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 	config := core.Must(ConfigFromContext(r.Context()))
 	log.Debugf("Request Headers: %#v", r.Header)
 
-	r.Body = http.MaxBytesReader(w, r.Body, 5 << 30) // uploads are limited to 5GB
-	err := r.ParseMultipartForm(5 << 20) // we can deal with 5MB in RAM
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<30) // uploads are limited to 5GB
+	err := r.ParseMultipartForm(5 << 20)           // we can deal with 5MB in RAM
 	if err != nil {
 		log.Errorf("Failed to parse Multipart form", err)
 		core.RespondWithError(w, http.StatusBadRequest, err)
@@ -107,7 +107,7 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 		core.RespondWithError(w, http.StatusInternalServerError, errors.UnknownError.With(filename))
 		return
 	}
-	
+
 	if err := metadata.Delete(); err != nil {
 		log.Errorf("Failed to delete meta information", err)
 	}
