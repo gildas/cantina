@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/gildas/go-core"
 	"github.com/gildas/go-errors"
@@ -42,7 +43,7 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer reader.Close()
 
-	destination := path.Join(config.StorageRoot, header.Filename)
+	destination := filepath.Clean(path.Join(config.StorageRoot, header.Filename))
 	log.Debugf("Writing %d bytes to %s", header.Size, destination)
 	log.Debugf("MIME: %#v", header.Header.Get("Content-Type"))
 	writer, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE, 0666)
@@ -61,7 +62,7 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Infof("Written %d bytes to %s", written, destination)
 
-	metadata, err := CreateMetaInformation(config.WithRequest(r), header.Filename, header.Header.Get("Content-Type"), uint64(written))
+	metadata, err := CreateMetaInformation(config.WithRequest(r), filepath.Clean(header.Filename), header.Header.Get("Content-Type"), uint64(written))
 	if err != nil {
 		log.Errorf("Failed to build metadata info", err)
 		core.RespondWithError(w, http.StatusInternalServerError, err)

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gildas/go-core"
 	"github.com/gildas/go-errors"
@@ -29,6 +30,14 @@ func (auth Authority) HttpHandler() func(next http.Handler) http.Handler {
 			if len(key) == 0 {
 				log.Errorf("HTTP Request does not carry a key in its parameters or headers")
 				core.RespondWithError(w, http.StatusForbidden, errors.ArgumentMissing.With("X-Key or key"))
+				return
+			}
+
+			// Sanitizing the key
+			key = filepath.Clean(key)
+			if strings.ContainsAny(key, "\\/:<>|?*") {
+				log.Errorf("HTTP Request carries an invalid key in its parameters or headers: %s", key)
+				core.RespondWithError(w, http.StatusForbidden, errors.ArgumentInvalid.With("X-Key or key", key))
 				return
 			}
 
