@@ -40,7 +40,7 @@ func CreateMetaInformation(config Config, filename string, mimetype string, size
 	if err != nil {
 		return MetaInformation{}, err
 	}
-	err = os.WriteFile(filepath.Join(config.MetaRoot, filename + ".json"), payload, 0666)
+	err = os.WriteFile(filepath.Join(config.MetaRoot, filename+".json"), payload, 0666)
 	if err != nil {
 		return MetaInformation{}, err
 	}
@@ -80,7 +80,7 @@ func (metadata MetaInformation) DeleteContent() error {
 	}
 	// delete the thumbnail (if any)
 	basename := strings.TrimSuffix(filepath.Base(metadata.Filename), filepath.Ext(metadata.Filename))
-	destination = filepath.Join(metadata.config.StorageRoot, filepath.Dir(metadata.Filename), basename + "-thumbnail.png")
+	destination = filepath.Join(metadata.config.StorageRoot, filepath.Dir(metadata.Filename), basename+"-thumbnail.png")
 	if err := os.Remove(destination); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
@@ -89,7 +89,7 @@ func (metadata MetaInformation) DeleteContent() error {
 
 // Path tells the Path of the file holding the MetaInformation
 func (metadata MetaInformation) Path() string {
-	return filepath.Join(metadata.config.MetaRoot, metadata.Filename + ".json")
+	return filepath.Join(metadata.config.MetaRoot, metadata.Filename+".json")
 }
 
 // MarshalJSON marshals this into JSON
@@ -119,6 +119,6 @@ func (metadata *MetaInformation) UnmarshalJSON(payload []byte) (err error) {
 	}
 	*metadata = MetaInformation(inner.surrogate)
 	metadata.CreatedAt = inner.CreatedAt.AsTime()
-	metadata.DeleteAt  = (*time.Time)(inner.DeleteAt)
+	metadata.DeleteAt = (*time.Time)(inner.DeleteAt)
 	return
 }
