@@ -1,14 +1,17 @@
 # cantina
+
 Very simple REST based File Storage Server
 
 ## Installation
 
 If you already run Go,
+
 ```bash
 go install github.com/gildas/cantina@latest
 ```
 
 Using Docker:
+
 ```bash
 docker run -d -p 80:8080 -v /path/to/storage:/usr/local/storage gildas/cantina
 ```
@@ -24,16 +27,19 @@ Typically, downloads are anonymous and uploads/deletes are secured by keys.
 Downloading content is very easy and does not require any credential (by default):
 
 Using [httpie](https://httpie.io):
+
 ```console
 http GET http://cantina/api/v1/files/picture.png > picture.png
 ```
 
 Curl:
+
 ```console
 curl -sSLO http://cantina/api/v1/files/picture.png
 ```
 
 Or with PowerShell:
+
 ```posh
 Invoke-RestMethod https://cantina/api/v1/files/picture.png -OutFile picture.png
 ```
@@ -47,17 +53,20 @@ http --form POST http://cantina/api/v1/files X-Key:12345678 file@~/Downloads/pic
 ```
 
 You can also pass your key in the query, which is less secure:
+
 ```console
 http --form POST http://cantina/api/v1/files?key=12345678 file@~/Downloads/picture.png
 ```
 
 Curl:
+
 ```console
 curl -H 'X-key:12345678' -F 'file=@myfile-0.0.1.min.js' https://cantina/upload
 curl -F 'file=@myfile-0.0.1.min.js' https://cantina/upload?key=12345678
 ```
 
 Or with PowerShell:
+
 ```posh
 Invoke-RestMethod https://cantina/api/v1/files `
   -Method Post `
@@ -101,11 +110,13 @@ http DELETE http://cantina/api/v1/files/picture.png X-Key:12345678
 ```
 
 Curl:
+
 ```console
 curl -H 'X-key:12345678' -X DELETE https://cantina/upload/picture.png
 ```
 
 Or with PowerShell:
+
 ```posh
 Invoke-RestMethod https://cantina/api/v1/files/picture.png `
   -Method Delete `
