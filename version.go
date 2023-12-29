@@ -12,7 +12,7 @@ var branch string
 var stamp string
 
 // VERSION is the version of this application
-var VERSION = "1.2.4"
+var VERSION = "1.2.5"
 
 // APP is the name of the application
 const APP = "cantina"
