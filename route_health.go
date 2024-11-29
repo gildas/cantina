@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync/atomic"
@@ -23,12 +24,9 @@ func HealthRoutes(router *mux.Router) {
 // healthLivenessHandler processes requests that check the health of this app (e.g.: Kubernetes)
 func healthLivenessHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(core.GetEnvAsString("TRACE_PROBE", "")) > 0 {
-			log, err := logger.FromContext(r.Context())
-			if err == nil {
-				log.Topic("probe").Scope("liveness").Tracef("It is alive!")
-			}
-		}
+		log := probelog(r.Context()).Child("probe", "liveness")
+
+		log.Topic("probe").Scope("liveness").Tracef("It is alive!")
 		core.RespondWithJSON(w, http.StatusOK, struct{}{})
 	})
 }
@@ -36,21 +34,7 @@ func healthLivenessHandler() http.Handler {
 // healthReadinessHandler processes requests that check if this app is ready to process data (i.e.: Kubernetes)
 func healthReadinessHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var logit = len(core.GetEnvAsString("TRACE_PROBE", "")) > 0
-		var log *logger.Logger
-
-		if logit {
-			var err error
-
-			if log, err = logger.FromContext(r.Context()); err != nil {
-				Log.Errorf("Failed to retrieve logger from Context", err)
-				log = logger.Create(APP, &logger.NilStream{})
-			} else {
-				log = log.Child("probe", "readiness")
-			}
-		} else {
-			log = logger.Create(APP, &logger.NilStream{})
-		}
+		log := probelog(r.Context()).Child("probe", "readiness")
 
 		if atomic.LoadInt32(&HealthHTTP) == 0 {
 			log.Errorf("WebServer not ready")
@@ -61,4 +45,19 @@ func healthReadinessHandler() http.Handler {
 		log.Tracef("It is ready!")
 		core.RespondWithJSON(w, http.StatusOK, struct{}{})
 	})
+}
+
+// probelog gives a suitable logger for the probes
+//
+// If the TRACE_PROBE environment variable is not set, nothing is logged
+func probelog(context context.Context) *logger.Logger {
+	if len(core.GetEnvAsString("TRACE_PROBE", "")) > 0 {
+		log, err := logger.FromContext(context)
+		if err == nil {
+			return log.Child("probe", "readiness")
+		}
+		log.Errorf("Failed to retrieve logger from Context", err)
+		return logger.Create(APP, &logger.NilStream{})
+	}
+	return logger.Create(APP, &logger.NilStream{})
 }

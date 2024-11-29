@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -21,9 +22,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 )
-
-// Log is the application Logger
-var Log *logger.Logger
 
 // WebServer is the application Web Server
 var WebServer *http.Server
@@ -46,29 +44,29 @@ func main() {
 	flag.Parse()
 
 	if *version {
-		fmt.Printf("%s version %s\n", APP, VERSION)
+		fmt.Printf("%s v%s (%s)\n", APP, Version(), runtime.GOARCH)
 		os.Exit(0)
 	}
 
 	// Initializing the Logger
-	Log = logger.Create(APP)
-	defer Log.Flush()
-	Log.Infof(strings.Repeat("-", 80))
-	Log.Infof("Starting %s v. %s", APP, Version())
-	Log.Infof("Log Destination: %s", Log)
-	Log.Infof("Webserver Port=%d, Health Port=%d", *port, *probePort)
-	Log.Infof("Storage location: %s", *storageRoot)
+	log := logger.Create(APP)
+	defer log.Flush()
+	log.Infof("%s", strings.Repeat("-", 80))
+	log.Infof("Starting %s v%s (%s)", APP, Version(), runtime.GOARCH)
+	log.Infof("Log Destination: %s", log)
+	log.Infof("Webserver Port=%d, Health Port=%d", *port, *probePort)
+	log.Infof("Storage location: %s", *storageRoot)
 	if *purgeAfter == 0 {
-		Log.Infof("Default purge: never")
+		log.Infof("Default purge: never")
 	} else {
-		Log.Infof("Default purge: %s", *purgeAfter)
+		log.Infof("Default purge: %s", *purgeAfter)
 	}
 
 	// Validating the storage URL
 	storageURL, err := url.Parse(*storageURLX)
 	if err != nil {
-		Log.Fatalf("Provided Storage URL (%s) is invalid", *storageURLX, err)
-		Log.Close()
+		log.Fatalf("Provided Storage URL (%s) is invalid", *storageURLX, err)
+		log.Close()
 		os.Exit(-1)
 	}
 	if *appendAPI {
@@ -78,24 +76,24 @@ func main() {
 	// Creating the folders
 	if _, err := os.Stat(*storageRoot); os.IsNotExist(err) {
 		if err = os.MkdirAll(*storageRoot, os.ModePerm); err != nil {
-			Log.Fatalf("Failed to create the storage folder", err)
-			Log.Close()
+			log.Fatalf("Failed to create the storage folder", err)
+			log.Close()
 			os.Exit(-1)
 		}
 	}
 	metaRoot := filepath.Join(*storageRoot, ".meta")
 	if _, err := os.Stat(metaRoot); os.IsNotExist(err) {
 		if err = os.MkdirAll(metaRoot, os.ModePerm); err != nil {
-			Log.Fatalf("Failed to create the meta-information folder", err)
-			Log.Close()
+			log.Fatalf("Failed to create the meta-information folder", err)
+			log.Close()
 			os.Exit(-1)
 		}
 	}
 	authRoot := filepath.Join(*storageRoot, ".auth")
 	if _, err := os.Stat(authRoot); os.IsNotExist(err) {
 		if err = os.MkdirAll(authRoot, os.ModePerm); err != nil {
-			Log.Fatalf("Failed to create the authorization folder", err)
-			Log.Close()
+			log.Fatalf("Failed to create the authorization folder", err)
+			log.Close()
 			os.Exit(-1)
 		}
 	}
@@ -112,12 +110,12 @@ func main() {
 
 	// Starting the Purge Job
 	var waitForJobs sync.WaitGroup
-	_, stopPurge := StartPurge(config, &waitForJobs, Log)
+	_, stopPurge := StartPurge(config, &waitForJobs, log)
 
 	// Setting up web router
 	router := mux.NewRouter().StrictSlash(true)
 	apiRouter := router.PathPrefix("/api/v1").Subrouter()
-	apiRouter.Use(Log.HttpHandler(), authority.HttpHandler(), config.HttpHandler())
+	apiRouter.Use(log.HttpHandler(), authority.HttpHandler(), config.HttpHandler())
 
 	FilesRoutes(apiRouter)
 	router.PathPrefix("/api/v1/files").Handler(http.StripPrefix("/api/v1/files/", http.FileServer(StorageFileSystem{http.Dir(*storageRoot)})))
@@ -127,7 +125,7 @@ func main() {
 		handlers.AllowedOrigins(strings.Split(*corsOrigins, ",")),
 		handlers.AllowedMethods([]string{http.MethodPost, http.MethodGet, http.MethodOptions}),
 	}
-	Log.Topic("cors").Infof("Allowed Origins: %v", strings.Split(*corsOrigins, ","))
+	log.Topic("cors").Infof("Allowed Origins: %v", strings.Split(*corsOrigins, ","))
 
 	// Setting up the Health server
 	var healthServer *http.Server
@@ -137,7 +135,7 @@ func main() {
 			// Assigning Health routes
 			healthRouter := mux.NewRouter().StrictSlash(true).PathPrefix("/healthz").Subrouter()
 			if len(core.GetEnvAsString("TRACE_PROBE", "")) > 0 {
-				healthRouter.Use(Log.HttpHandler())
+				healthRouter.Use(log.HttpHandler())
 			}
 			HealthRoutes(healthRouter)
 
@@ -152,7 +150,7 @@ func main() {
 
 			// Starting the health server
 			go func() {
-				log := Log.Child("healthserver", "run")
+				log := log.Child("healthserver", "run")
 
 				log.Infof("Starting Health server on port %d", *probePort)
 				if err := healthServer.ListenAndServe(); err != nil {
@@ -162,15 +160,15 @@ func main() {
 				}
 			}()
 		} else {
-			Log.Topic("healthserver").Scope("config").Infof("Health Server will run on the same port as the Web Server: (probe port: %d)", *probePort)
+			log.Topic("healthserver").Scope("config").Infof("Health Server will run on the same port as the Web Server: (probe port: %d)", *probePort)
 			healthRouter := router.PathPrefix("/healthz").Subrouter()
 			if len(core.GetEnvAsString("TRACE_PROBE", "")) > 0 {
-				healthRouter.Use(Log.HttpHandler())
+				healthRouter.Use(log.HttpHandler())
 			}
 			HealthRoutes(healthRouter)
 		}
 	} else {
-		Log.Topic("healthserver").Scope("config").Infof("Health Server will not run (probe port: %d)", *probePort)
+		log.Topic("healthserver").Scope("config").Infof("Health Server will not run (probe port: %d)", *probePort)
 	}
 
 	// Initializing the web server
@@ -184,7 +182,7 @@ func main() {
 
 	// Starting the web server
 	go func() {
-		log := Log.Child("webserver", "run")
+		log := log.Child("webserver", "run")
 
 		log.Infof("Starting WEB server on port %d", *port)
 		log.Infof("Serving routes:")
@@ -231,33 +229,33 @@ func main() {
 		context, cancel := context.WithTimeout(context.Background(), *wait)
 		defer cancel()
 
-		Log.Infof("Application is stopping (%+v)", sig)
+		log.Infof("Application is stopping (%+v)", sig)
 
 		// Stopping the Purge Job
 		close(stopPurge)
 
 		// Wait for all jobs to finish
 		waitForJobs.Wait()
-		Log.Infof("All job have stopped")
+		log.Infof("All job have stopped")
 
 		// Stopping the Health server
 		if *probePort > 0 && *probePort != *port {
-			Log.Debugf("Health server is shutting down")
+			log.Debugf("Health server is shutting down")
 			healthServer.SetKeepAlivesEnabled(false)
 			_ = healthServer.Shutdown(context)
-			Log.Infof("Health server is stopped")
+			log.Infof("Health server is stopped")
 		}
 
 		// Stopping the WEB server
 		if *port != 0 {
-			Log.Debugf("WEB server is shutting down")
+			log.Debugf("WEB server is shutting down")
 			atomic.StoreInt32(&HealthHTTP, 0)
 			WebServer.SetKeepAlivesEnabled(false)
 			_ = WebServer.Shutdown(context)
-			Log.Infof("WEB server is stopped")
+			log.Infof("WEB server is stopped")
 		}
 
-		Log.Close()
+		log.Close()
 		close(exitChannel)
 	}()
 
