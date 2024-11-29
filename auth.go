@@ -21,10 +21,25 @@ func (auth Authority) Middleware() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log := logger.Must(logger.FromContext(r.Context())).Child("auth", nil)
 
-			key := r.Header.Get("X-Key")
+			var key string
+
+			authorization := r.Header.Get("Authorization")
+			if len(authorization) > 0 {
+				parts := strings.Split(authorization, " ")
+				if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+					log.Errorf("HTTP Request carries an invalid Authorization header: %s", authorization)
+					core.RespondWithError(w, http.StatusForbidden, errors.ArgumentInvalid.With("Authorization", authorization))
+					return
+				}
+				key = parts[1]
+			}
+
 			if len(key) == 0 {
-				// TODO: try to read the key from application/x-www-form-urlencoded and multipart/form-data
-				key = r.URL.Query().Get("key")
+				key = r.Header.Get("X-Key")
+				if len(key) == 0 {
+					// TODO: try to read the key from application/x-www-form-urlencoded and multipart/form-data
+					key = r.URL.Query().Get("key")
+				}
 			}
 
 			if len(key) == 0 {
