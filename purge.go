@@ -41,7 +41,7 @@ func (purge Purge) run(stop chan struct{}) {
 	for {
 		select {
 		case <-stop:
-			log.Infof("Stopping POurge Job")
+			log.Infof("Stopping Purge Job")
 			purge.waitgroup.Done()
 			return
 		case now := <-timer.C:
