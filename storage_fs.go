@@ -44,7 +44,7 @@ func (fs StorageFileSystem) IsValid(filename string) bool {
 
 // Open the named file for reading
 //
-// If the file is not valid, os.ErrPermission is returned
+// # If the file is not valid, os.ErrPermission is returned
 //
 // implements http.FileSystem
 func (sfs StorageFileSystem) Open(name string) (http.File, error) {
