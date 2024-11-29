@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/url"
 	"path/filepath"
@@ -14,22 +15,22 @@ import (
 )
 
 type UploadInfo struct {
-	ContentURL   *url.URL       `json:"-"`
-	ThumbnailURL *url.URL       `json:"-"`
-	Duration     time.Duration  `json:"-"`
-	DeleteAt     *time.Time     `json:"-"`
-	MimeType     string         `json:"mimeType"`
-	Size         uint64         `json:"size"`
-	Logger       *logger.Logger `json:"-"`
+	ContentURL   *url.URL      `json:"-"`
+	ThumbnailURL *url.URL      `json:"-"`
+	Duration     time.Duration `json:"-"`
+	DeleteAt     *time.Time    `json:"-"`
+	MimeType     string        `json:"mimeType"`
+	Size         uint64        `json:"size"`
+	Password     string        `json:"password,omitempty"`
 }
 
-func UploadInfoFrom(log *logger.Logger, storageURL *url.URL, path string, metadata MetaInformation) (*UploadInfo, error) {
+func UploadInfoFrom(context context.Context, storageURL *url.URL, path string, metadata MetaInformation) (*UploadInfo, error) {
+	log := logger.Must(logger.FromContext(context)).Child("uploadinfo", "create", "filename", metadata.Filename)
 	var err error
 	info := &UploadInfo{
 		MimeType: metadata.MimeType,
 		Size:     metadata.Size,
 		DeleteAt: metadata.DeleteAt,
-		Logger:   log.Child("uploadinfo", "create", "filename", metadata.Filename),
 	}
 
 	info.ContentURL, err = storageURL.Parse(metadata.Filename)
@@ -42,7 +43,7 @@ func UploadInfoFrom(log *logger.Logger, storageURL *url.URL, path string, metada
 		// TODO: If the file is an image, calculate a thumbnail
 		thumbnail, err := info.getThumbnail(path)
 		if err != nil {
-			info.Logger.Warnf("Failed to create a thumbnail, we will use a default icon, Error: %s", err)
+			log.Warnf("Failed to create a thumbnail, we will use a default icon, Error: %s", err)
 			info.ThumbnailURL, _ = url.Parse("https://cdn2.iconfinder.com/data/icons/freecns-cumulus/16/519587-084_Photo-64.png")
 		} else {
 			info.ThumbnailURL, _ = storageURL.Parse(thumbnail)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io/fs"
 	"os"
@@ -18,13 +19,14 @@ type MetaInformation struct {
 	DeleteAt  *time.Time `json:"-"` // Can be nil
 	MimeType  string     `json:"mimeType"`
 	Size      uint64     `json:"size"`
+	Password  string     `json:"password,omitempty"`
 	config    Config
 }
 
 // CreateMetaInformation creates a meta information
 //
 // a file is created in the meta folder
-func CreateMetaInformation(config Config, filename string, mimetype string, size uint64) (MetaInformation, error) {
+func CreateMetaInformation(context context.Context, config Config, filename string, mimetype string, size uint64) (MetaInformation, error) {
 	metadata := MetaInformation{
 		CreatedAt: time.Now().UTC(),
 		Filename:  filename,
@@ -48,7 +50,7 @@ func CreateMetaInformation(config Config, filename string, mimetype string, size
 }
 
 // NewMetaInformation find MetaInformation about the given filename or assing a new one
-func NewMetaInformation(config Config, filename string) *MetaInformation {
+func NewMetaInformation(context context.Context, config Config, filename string) *MetaInformation {
 	metadata := &MetaInformation{}
 	if payload, err := os.ReadFile(MetaInformation{Filename: filename, config: config}.Path()); err == nil {
 		err = json.Unmarshal(payload, &metadata)
@@ -64,7 +66,7 @@ func NewMetaInformation(config Config, filename string) *MetaInformation {
 }
 
 // Delete deletes the file holding the MetaInformation
-func (metadata MetaInformation) Delete() error {
+func (metadata MetaInformation) Delete(context context.Context) error {
 	err := os.Remove(metadata.Path())
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
@@ -73,7 +75,7 @@ func (metadata MetaInformation) Delete() error {
 }
 
 // DeleteContent deletes all files handled by this MetaInformation
-func (metadata MetaInformation) DeleteContent() error {
+func (metadata MetaInformation) DeleteContent(context context.Context) error {
 	destination := filepath.Join(metadata.config.StorageRoot, metadata.Filename)
 	if err := os.Remove(destination); err != nil {
 		return err

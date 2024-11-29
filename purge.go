@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -60,15 +61,16 @@ func (purge Purge) run(stop chan struct{}) {
 				log.Debugf("Loading %s", path)
 				extension := filepath.Ext(path)
 				basename := strings.TrimSuffix(filepath.Base(path), extension)
-				metadata := NewMetaInformation(purge.config, basename)
+				context := log.Record("filename", basename).ToContext(context.Background())
+				metadata := NewMetaInformation(context, purge.config, basename)
 				if metadata.DeleteAt != nil {
 					log.Debugf("File %s, should purge in %s on %s", metadata.Filename, metadata.DeleteAt.Sub(now), metadata.DeleteAt)
 					if now.UTC().After(*metadata.DeleteAt) {
-						if err = metadata.DeleteContent(); err != nil {
+						if err = metadata.DeleteContent(context); err != nil {
 							log.Errorf("Failed to delete content for %s", metadata.Filename, err)
 							return err
 						}
-						if err = metadata.Delete(); err != nil {
+						if err = metadata.Delete(context); err != nil {
 							log.Errorf("Failed to delete metadata for %s", metadata.Filename, err)
 							return err
 						}

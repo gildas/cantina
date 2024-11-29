@@ -42,8 +42,11 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer reader.Close()
+	filename := filepath.Clean(header.Filename)
+	log = log.Record("filename", filename)
+	context := log.ToContext(r.Context())
 
-	destination := filepath.Clean(path.Join(config.StorageRoot, header.Filename))
+	destination := path.Join(config.StorageRoot, filename)
 	log.Debugf("Writing %d bytes to %s", header.Size, destination)
 	log.Debugf("MIME: %#v", header.Header.Get("Content-Type"))
 	writer, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE, 0666)
@@ -62,14 +65,14 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Infof("Written %d bytes to %s", written, destination)
 
-	metadata, err := CreateMetaInformation(config.WithRequest(r), filepath.Clean(header.Filename), header.Header.Get("Content-Type"), uint64(written))
+	metadata, err := CreateMetaInformation(context, config.WithRequest(r), filename, header.Header.Get("Content-Type"), uint64(written))
 	if err != nil {
 		log.Errorf("Failed to build metadata info", err)
 		core.RespondWithError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	uploadInfo, err := UploadInfoFrom(log, &config.StorageURL, destination, metadata)
+	uploadInfo, err := UploadInfoFrom(context, &config.StorageURL, destination, metadata)
 	if err != nil {
 		log.Errorf("Failed to build upload info", err)
 		core.RespondWithError(w, http.StatusInternalServerError, err)
@@ -91,9 +94,12 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 		core.RespondWithError(w, http.StatusBadRequest, errors.ArgumentMissing.With("filename"))
 		return
 	}
+	filename = filepath.Clean(filename)
+	log = log.Record("filename", filename)
+	context := log.ToContext(r.Context())
 
-	metadata := NewMetaInformation(config, filename)
-	if err := metadata.DeleteContent(); err != nil {
+	metadata := NewMetaInformation(context, config, filename)
+	if err := metadata.DeleteContent(context); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			log.Errorf("File %s was not found", filename, err)
 			core.RespondWithError(w, http.StatusNotFound, errors.NotFound.With("file", filename))
@@ -108,7 +114,7 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := metadata.Delete(); err != nil {
+	if err := metadata.Delete(context); err != nil {
 		log.Errorf("Failed to delete meta information", err)
 	}
 
