@@ -35,16 +35,18 @@ GOFILES   := $(filter-out $(GOTESTS), $(call rwildcard,,*.go))
 ASSETS    :=
 
 # Testing
-TEST_TIMEOUT  ?= 30
-COVERAGE_MODE ?= count
-COVERAGE_OUT  := $(COV_DIR)/coverage.out
-COVERAGE_XML  := $(COV_DIR)/coverage.xml
-COVERAGE_HTML := $(COV_DIR)/index.html
+TEST_PORT         ?= 8116
+TEST_STORAGE_ROOT ?= tmp/storage
+TEST_TIMEOUT      ?= 30
+COVERAGE_MODE     ?= count
+COVERAGE_OUT      := $(COV_DIR)/coverage.out
+COVERAGE_XML      := $(COV_DIR)/coverage.xml
+COVERAGE_HTML     := $(COV_DIR)/index.html
 
 # Tools
 GO      ?= go
 GOOS    != $(GO) env GOOS
-LOGGER   =  bunyan -L -o short
+LOGGER   =  lv -L -o short
 GOBIN    = $(BIN_DIR)
 GOLINT  ?= golangci-lint
 YOLO     = $(BIN_DIR)/yolo
@@ -221,7 +223,7 @@ $(BIN_DIR)/$(PROJECT).pdf: README.md ; $(info $(M) Generating PDF documentation 
 .PHONY: __start__
 __start__: stop $(BIN_DIR)/$(GOOS)/$(PROJECT) | $(TMP_DIR) $(LOG_DIR); $(info $(M) Starting $(PROJECT) on $(GOOS))
 	$(info $(M)   Check the logs in $(LOG_DIR) with `make logview`)
-	$Q DEBUG=1 LOG_DESTINATION="$(LOG_DIR)/$(PROJECT).log" $(BIN_DIR)/$(GOOS)/$(PROJECT) & echo $$! > $(TMP_DIR)/$(PROJECT).pid
+	$Q DEBUG=1 LOG_DESTINATION="$(LOG_DIR)/$(PROJECT).log" $(BIN_DIR)/$(GOOS)/$(PROJECT) --port $(TEST_PORT) --storage-root $(TEST_STORAGE_ROOT) & echo $$! > $(TMP_DIR)/$(PROJECT).pid
 
 # Docker recipes
 # @see https://www.gnu.org/software/make/manual/html_node/Empty-Targets.html
