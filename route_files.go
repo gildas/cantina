@@ -98,7 +98,7 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 	log = log.Record("filename", filename)
 	context := log.ToContext(r.Context())
 
-	metadata := NewMetaInformation(context, config, filename)
+	metadata := FindMetaInformation(context, config, filename)
 	if err := metadata.DeleteContent(context); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			log.Errorf("File %s was not found", filename, err)

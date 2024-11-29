@@ -11,6 +11,7 @@ import (
 
 	"github.com/gildas/go-core"
 	"github.com/gildas/go-errors"
+	"github.com/gildas/go-logger"
 )
 
 type MetaInformation struct {
@@ -32,25 +33,22 @@ func CreateMetaInformation(context context.Context, config Config, filename stri
 		Filename:  filename,
 		MimeType:  mimetype,
 		Size:      size,
+		Password:  config.Password,
 		config:    config,
 	}
 	if config.PurgeAfter > 0 {
 		deleteAt := metadata.CreatedAt.Add(config.PurgeAfter)
 		metadata.DeleteAt = &deleteAt
 	}
-	payload, err := json.Marshal(metadata)
-	if err != nil {
-		return MetaInformation{}, err
-	}
-	err = os.WriteFile(filepath.Join(config.MetaRoot, filename+".json"), payload, 0666)
+	err := metadata.Save(context)
 	if err != nil {
 		return MetaInformation{}, err
 	}
 	return metadata, nil
 }
 
-// NewMetaInformation find MetaInformation about the given filename or assing a new one
-func NewMetaInformation(context context.Context, config Config, filename string) *MetaInformation {
+// FindMetaInformation find MetaInformation about the given filename or assing a new one
+func FindMetaInformation(context context.Context, config Config, filename string) *MetaInformation {
 	metadata := &MetaInformation{}
 	if payload, err := os.ReadFile(MetaInformation{Filename: filename, config: config}.Path()); err == nil {
 		err = json.Unmarshal(payload, &metadata)
@@ -63,6 +61,15 @@ func NewMetaInformation(context context.Context, config Config, filename string)
 		Filename: filename,
 		config:   config,
 	}
+}
+
+// Save saves the MetaInformation
+func (metadata MetaInformation) Save(context context.Context) error {
+	payload, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(metadata.Path(), payload, 0600)
 }
 
 // Delete deletes the file holding the MetaInformation

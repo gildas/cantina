@@ -62,7 +62,7 @@ func (purge Purge) run(stop chan struct{}) {
 				extension := filepath.Ext(path)
 				basename := strings.TrimSuffix(filepath.Base(path), extension)
 				context := log.Record("filename", basename).ToContext(context.Background())
-				metadata := NewMetaInformation(context, purge.config, basename)
+				metadata := FindMetaInformation(context, purge.config, basename)
 				if metadata.DeleteAt != nil {
 					log.Debugf("File %s, should purge in %s on %s", metadata.Filename, metadata.DeleteAt.Sub(now), metadata.DeleteAt)
 					if now.UTC().After(*metadata.DeleteAt) {
