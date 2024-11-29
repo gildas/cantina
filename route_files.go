@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"io/fs"
 	"net/http"
@@ -18,6 +19,7 @@ func FilesRoutes(router *mux.Router) {
 	filesRouter := router.PathPrefix("/files").Subrouter()
 
 	filesRouter.Methods(http.MethodPost).HandlerFunc(createFileHandler)
+	filesRouter.Methods(http.MethodPatch).Path("/{filename}").HandlerFunc(patchFileHandler)
 	filesRouter.Methods(http.MethodDelete).Path("/{filename}").HandlerFunc(deleteFileHandler)
 }
 
@@ -80,6 +82,54 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	core.RespondWithJSON(w, http.StatusOK, uploadInfo)
+}
+
+func patchFileHandler(w http.ResponseWriter, r *http.Request) {
+	log := logger.Must(logger.FromContext(r.Context()))
+	config := core.Must(ConfigFromContext(r.Context()))
+	log.Debugf("Request Headers: %#v", r.Header)
+
+	params := mux.Vars(r)
+	filename := params["filename"]
+	if len(filename) == 0 {
+		log.Errorf("Missing Filename from path")
+		core.RespondWithError(w, http.StatusBadRequest, errors.ArgumentMissing.With("filename"))
+		return
+	}
+	filename = filepath.Clean(filename)
+	log = log.Record("filename", filename)
+	context := log.ToContext(r.Context())
+
+	metadata := FindMetaInformation(context, config, filename)
+	log.Record("metadata", metadata).Infof("Loaded metadata for %s", filename)
+
+	// Analyze the body
+	defer r.Body.Close()
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Errorf("Failed to read the request body: %s", err)
+		core.RespondWithError(w, http.StatusBadRequest, err)
+		return
+	}
+	log.Scope("payload").Tracef("Request Body: %s", body)
+
+	var update MetaInformation
+
+	if err := json.Unmarshal(body, &update); err != nil {
+		log.Errorf("Failed to unmarshal the request body", err)
+		core.RespondWithError(w, http.StatusBadRequest, err)
+		return
+	}
+	log.Record("update", update).Debugf("Metadata Unmarshaled")
+
+	if err := metadata.Update(context, update); err != nil {
+		log.Errorf("Failed to update meta information", err)
+		core.RespondWithError(w, http.StatusInternalServerError, errors.UnknownError.With(filename))
+		return
+	}
+
+	log.Infof("File %s was updated successfully", filename)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func deleteFileHandler(w http.ResponseWriter, r *http.Request) {

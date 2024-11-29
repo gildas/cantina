@@ -63,6 +63,25 @@ func FindMetaInformation(context context.Context, config Config, filename string
 	}
 }
 
+// Update updates the MetaInformation
+func (metadata *MetaInformation) Update(context context.Context, update MetaInformation) error {
+	log := logger.Must(logger.FromContext(context)).Child("meta", "update", "filename", metadata.Filename)
+
+	if len(update.MimeType) > 0 && update.MimeType != metadata.MimeType {
+		log.Infof("Updating MimeType from %s to %s", metadata.MimeType, update.MimeType)
+		metadata.MimeType = update.MimeType
+	}
+	if len(update.Password) > 0 {
+		log.Infof("Updating Password from %s to %s", metadata.Password, update.Password)
+		metadata.Password = update.Password
+	}
+	if update.DeleteAt != nil && (metadata.DeleteAt == nil || metadata.DeleteAt != update.DeleteAt) {
+		log.Infof("Updating DeleteAt from %s to %s", metadata.DeleteAt, update.DeleteAt)
+		metadata.DeleteAt = update.DeleteAt
+	}
+	return metadata.Save(context)
+}
+
 // Save saves the MetaInformation
 func (metadata MetaInformation) Save(context context.Context) error {
 	payload, err := json.Marshal(metadata)
@@ -120,14 +139,83 @@ func (metadata *MetaInformation) UnmarshalJSON(payload []byte) (err error) {
 	type surrogate MetaInformation
 	var inner struct {
 		surrogate
-		CreatedAt core.Time  `json:"createdAt"`
-		DeleteAt  *core.Time `json:"deleteAt,omitempty"`
+		CreatedAt core.Time `json:"createdAt"`
 	}
 	if err = json.Unmarshal(payload, &inner); err != nil {
 		return errors.JSONUnmarshalError.Wrap(err)
 	}
 	*metadata = MetaInformation(inner.surrogate)
 	metadata.CreatedAt = inner.CreatedAt.AsTime()
-	metadata.DeleteAt = (*time.Time)(inner.DeleteAt)
+
+	var values map[string]any
+
+	if err = json.Unmarshal(payload, &values); err != nil {
+		return errors.JSONUnmarshalError.Wrap(err)
+	}
+
+	if metadata.DeleteAt, err = unmarshalTime(values, "deleteAt", "purgeAt", "purgeOn"); err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.JSONUnmarshalError.Wrap(err)
+	}
+
+	if metadata.DeleteAt == nil {
+		deleteIn, err := unmarshalDuration(values, "deleteIn", "deleteAfter", "purgeIn", "purgeAfter")
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return errors.JSONUnmarshalError.Wrap(err)
+		}
+		if deleteIn != nil {
+			deleteAt := time.Now().UTC().Add(time.Duration(*deleteIn))
+			metadata.DeleteAt = &deleteAt
+		}
+	}
 	return
+}
+
+func unmarshalTime(values map[string]any, name ...string) (*time.Time, error) {
+	for _, key := range name {
+		if value, ok := values[key]; ok {
+			return parseTime(value)
+		}
+	}
+	return nil, errors.NotFound.With("")
+}
+
+func parseTime(value any) (*time.Time, error) {
+	if value == nil {
+		return nil, errors.NotFound.With("value")
+	}
+	if stringValue, ok := value.(string); ok {
+		timeValue, err := core.ParseTime(stringValue)
+		if err == nil {
+			timeValue := time.Time(timeValue)
+			return &timeValue, nil
+		}
+		return nil, err
+	}
+	// Support epoch?
+	return nil, errors.NotFound.With("value")
+}
+
+func unmarshalDuration(values map[string]any, name ...string) (*time.Duration, error) {
+	for _, key := range name {
+		if value, ok := values[key]; ok {
+			return parseDuration(value)
+		}
+	}
+	return nil, errors.NotFound.With("")
+}
+
+func parseDuration(value any) (*time.Duration, error) {
+	if value == nil {
+		return nil, errors.NotFound.With("value")
+	}
+	if stringValue, ok := value.(string); ok {
+		durationValue, err := core.ParseDuration(stringValue)
+		if err == nil {
+			durationValue := time.Duration(durationValue)
+			return &durationValue, nil
+		}
+		return nil, err
+	}
+	// Support epoch?
+	return nil, errors.NotFound.With("value")
 }
