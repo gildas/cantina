@@ -92,7 +92,6 @@ func main() {
 			os.Exit(-1)
 		}
 	}
-	authority := Authority{authRoot}
 
 	// Create the Config object
 	config := Config{
@@ -121,8 +120,9 @@ func main() {
 	log.Topic("cors").Infof("Allowed Origins: %v", strings.Split(*corsOrigins, ","))
 
 	// Setting up web router
+	authority := Authority{authRoot}
 	apiRouter := server.SubRouter("/api/v1")
-	apiRouter.Use(authority.HttpHandler(), config.HttpHandler())
+	apiRouter.Use(authority.Middleware(), config.HttpHandler())
 	FilesRoutes(apiRouter)
 
 	downloadRouter := server.SubRouter("/api/v1/files")

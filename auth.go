@@ -15,8 +15,8 @@ type Authority struct {
 	AuthRoot string
 }
 
-// HttpHandler is the middleware to protect a route
-func (auth Authority) HttpHandler() func(next http.Handler) http.Handler {
+// Middleware is the middleware to protect a route
+func (auth Authority) Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log := logger.Must(logger.FromContext(r.Context())).Child("auth", nil)
