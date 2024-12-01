@@ -19,8 +19,8 @@ type StorageFile struct {
 // Readdir reads the concents of the directory associated with the StorageFile
 //
 // implements http.File
-func (sf StorageFile) Readdir(n int) (fis []os.FileInfo, err error) {
-	files, err := sf.File.Readdir(n)
+func (fs StorageFile) Readdir(n int) (fis []os.FileInfo, err error) {
+	files, err := fs.File.Readdir(n)
 	for _, file := range files {
 		if !strings.HasPrefix(file.Name(), ".") {
 			fis = append(fis, file)
@@ -33,6 +33,9 @@ func (sf StorageFile) Readdir(n int) (fis []os.FileInfo, err error) {
 //
 // Basically we do not want to server dot files (at least)
 func (fs StorageFileSystem) IsValid(filename string) bool {
+	if filename == "/" {
+		return false
+	}
 	parts := strings.Split(filename, "/")
 	for _, part := range parts {
 		if strings.HasPrefix(part, ".") {
@@ -47,11 +50,11 @@ func (fs StorageFileSystem) IsValid(filename string) bool {
 // # If the file is not valid, os.ErrPermission is returned
 //
 // implements http.FileSystem
-func (sfs StorageFileSystem) Open(name string) (http.File, error) {
-	if !sfs.IsValid(name) {
+func (fs StorageFileSystem) Open(name string) (http.File, error) {
+	if !fs.IsValid(name) {
 		return nil, os.ErrPermission
 	}
-	file, err := sfs.FileSystem.Open(name)
+	file, err := fs.FileSystem.Open(name)
 	if err != nil {
 		return nil, err
 	}
