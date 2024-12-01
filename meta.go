@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"io/fs"
 	"os"
@@ -89,6 +91,11 @@ func (metadata *MetaInformation) Update(context context.Context, update MetaInfo
 
 // Save saves the MetaInformation
 func (metadata MetaInformation) Save(context context.Context) error {
+	if len(metadata.Password) > 0 && !strings.HasPrefix(metadata.Password, "!ENC!") {
+		hash := sha256.New()
+		hash.Write([]byte(metadata.Password))
+		metadata.Password = "!ENC!" + base64.StdEncoding.EncodeToString(hash.Sum(nil))
+	}
 	payload, err := json.Marshal(metadata)
 	if err != nil {
 		return err
@@ -127,7 +134,19 @@ func (metadata MetaInformation) Path() string {
 
 // Authenticate tells if the given password is correct
 func (metadata MetaInformation) Authenticate(password string) bool {
-	return metadata.Password == password
+	hash := sha256.New()
+	hash.Write([]byte(password))
+	hashed := "!ENC!" + base64.StdEncoding.EncodeToString(hash.Sum(nil))
+	return metadata.Password == hashed
+}
+
+// Redact redacts the MetaInformation
+func (metadata MetaInformation) Redact() any {
+	redacted := metadata
+	if len(redacted.Password) > 0 {
+		redacted.Password = logger.RedactWithHash(redacted.Password)
+	}
+	return redacted
 }
 
 // MarshalJSON marshals this into JSON
