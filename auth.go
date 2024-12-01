@@ -65,8 +65,6 @@ func (auth Authority) Middleware() func(http.Handler) http.Handler {
 			}
 			defer authFile.Close()
 
-			// TODO: Read the content of that file to get the user info (file: username.json)
-
 			next.ServeHTTP(w, r)
 		})
 	}
