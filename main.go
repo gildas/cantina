@@ -126,6 +126,7 @@ func main() {
 	FilesRoutes(apiRouter)
 
 	downloadRouter := server.SubRouter("/api/v1/files")
+	downloadRouter.Use(Authority{metaRoot}.DownloadMiddleware(), config.HttpHandler())
 	downloadRouter.Methods(http.MethodGet).Handler(http.StripPrefix("/api/v1/files/", http.FileServer(StorageFileSystem{http.Dir(*storageRoot)})))
 
 	HealthRoutes(server.SubRouter("/healthz"))

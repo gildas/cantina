@@ -49,12 +49,17 @@ func CreateMetaInformation(context context.Context, config Config, filename stri
 
 // FindMetaInformation find MetaInformation about the given filename or assing a new one
 func FindMetaInformation(context context.Context, config Config, filename string) *MetaInformation {
+	log := logger.Must(logger.FromContext(context)).Child("meta", "find", "filename", filename)
 	metadata := &MetaInformation{}
+
 	if payload, err := os.ReadFile(MetaInformation{Filename: filename, config: config}.Path()); err == nil {
+		log.Debugf("Found metadata for %s: %s", filename, string(payload))
 		err = json.Unmarshal(payload, &metadata)
 		if err == nil {
 			metadata.config = config
 			return metadata
+		} else {
+			log.Errorf("Failed to unmarshal metadata for %s", filename, err)
 		}
 	}
 	return &MetaInformation{
@@ -120,6 +125,11 @@ func (metadata MetaInformation) Path() string {
 	return filepath.Join(metadata.config.MetaRoot, metadata.Filename+".json")
 }
 
+// Authenticate tells if the given password is correct
+func (metadata MetaInformation) Authenticate(password string) bool {
+	return metadata.Password == password
+}
+
 // MarshalJSON marshals this into JSON
 func (metadata MetaInformation) MarshalJSON() ([]byte, error) {
 	type surrogate MetaInformation
@@ -167,7 +177,7 @@ func (metadata *MetaInformation) UnmarshalJSON(payload []byte) (err error) {
 			metadata.DeleteAt = &deleteAt
 		}
 	}
-	return
+	return nil
 }
 
 func unmarshalTime(values map[string]any, name ...string) (*time.Time, error) {
