@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"io/fs"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	"github.com/gildas/go-core"
 	"github.com/gildas/go-errors"
@@ -18,6 +20,7 @@ func FilesRoutes(router *mux.Router) {
 	filesRouter := router.PathPrefix("/files").Subrouter()
 
 	filesRouter.Methods(http.MethodPost).HandlerFunc(createFileHandler)
+	filesRouter.Methods(http.MethodPatch).Path("/{filename}").HandlerFunc(patchFileHandler)
 	filesRouter.Methods(http.MethodDelete).Path("/{filename}").HandlerFunc(deleteFileHandler)
 }
 
@@ -42,8 +45,11 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer reader.Close()
+	filename := filepath.Clean(header.Filename)
+	log = log.Record("filename", filename)
+	context := log.ToContext(r.Context())
 
-	destination := filepath.Clean(path.Join(config.StorageRoot, header.Filename))
+	destination := path.Join(config.StorageRoot, filename)
 	log.Debugf("Writing %d bytes to %s", header.Size, destination)
 	log.Debugf("MIME: %#v", header.Header.Get("Content-Type"))
 	writer, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE, 0666)
@@ -62,14 +68,27 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Infof("Written %d bytes to %s", written, destination)
 
-	metadata, err := CreateMetaInformation(config.WithRequest(r), filepath.Clean(header.Filename), header.Header.Get("Content-Type"), uint64(written))
+	password := ""
+	if value := r.FormValue("password"); len(value) > 0 {
+		password = value
+	}
+
+	maxDownloads := uint64(0)
+	if value := r.FormValue("maxDownloads"); len(value) > 0 {
+		if maxDownloads, err = strconv.ParseUint(value, 10, 64); err != nil {
+			log.Errorf("Failed to parse maxDownloads", err)
+			maxDownloads = 0
+		}
+	}
+
+	metadata, err := CreateMetaInformation(context, config.WithRequest(r), filename, header.Header.Get("Content-Type"), uint64(written), password, maxDownloads)
 	if err != nil {
 		log.Errorf("Failed to build metadata info", err)
 		core.RespondWithError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	uploadInfo, err := UploadInfoFrom(log, &config.StorageURL, destination, metadata)
+	uploadInfo, err := UploadInfoFrom(context, &config.StorageURL, destination, metadata)
 	if err != nil {
 		log.Errorf("Failed to build upload info", err)
 		core.RespondWithError(w, http.StatusInternalServerError, err)
@@ -77,6 +96,54 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	core.RespondWithJSON(w, http.StatusOK, uploadInfo)
+}
+
+func patchFileHandler(w http.ResponseWriter, r *http.Request) {
+	log := logger.Must(logger.FromContext(r.Context()))
+	config := core.Must(ConfigFromContext(r.Context()))
+	log.Debugf("Request Headers: %#v", r.Header)
+
+	params := mux.Vars(r)
+	filename := params["filename"]
+	if len(filename) == 0 {
+		log.Errorf("Missing Filename from path")
+		core.RespondWithError(w, http.StatusBadRequest, errors.ArgumentMissing.With("filename"))
+		return
+	}
+	filename = filepath.Clean(filename)
+	log = log.Record("filename", filename)
+	context := log.ToContext(r.Context())
+
+	metadata := FindMetaInformation(context, config, filename)
+	log.Record("metadata", metadata).Infof("Loaded metadata for %s", filename)
+
+	// Analyze the body
+	defer r.Body.Close()
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Errorf("Failed to read the request body: %s", err)
+		core.RespondWithError(w, http.StatusBadRequest, err)
+		return
+	}
+	log.Scope("payload").Tracef("Request Body: %s", body)
+
+	var update MetaInformation
+
+	if err := json.Unmarshal(body, &update); err != nil {
+		log.Errorf("Failed to unmarshal the request body", err)
+		core.RespondWithError(w, http.StatusBadRequest, err)
+		return
+	}
+	log.Record("update", update).Debugf("Metadata Unmarshaled")
+
+	if err := metadata.Update(context, update); err != nil {
+		log.Errorf("Failed to update meta information", err)
+		core.RespondWithError(w, http.StatusInternalServerError, errors.UnknownError.With(filename))
+		return
+	}
+
+	log.Infof("File %s was updated successfully", filename)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
@@ -91,9 +158,12 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 		core.RespondWithError(w, http.StatusBadRequest, errors.ArgumentMissing.With("filename"))
 		return
 	}
+	filename = filepath.Clean(filename)
+	log = log.Record("filename", filename)
+	context := log.ToContext(r.Context())
 
-	metadata := NewMetaInformation(config, filename)
-	if err := metadata.DeleteContent(); err != nil {
+	metadata := FindMetaInformation(context, config, filename)
+	if err := metadata.DeleteContent(context); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			log.Errorf("File %s was not found", filename, err)
 			core.RespondWithError(w, http.StatusNotFound, errors.NotFound.With("file", filename))
@@ -108,7 +178,7 @@ func deleteFileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := metadata.Delete(); err != nil {
+	if err := metadata.Delete(context); err != nil {
 		log.Errorf("Failed to delete meta information", err)
 	}
 
