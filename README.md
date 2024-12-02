@@ -196,6 +196,30 @@ Invoke-RestMethod https://cantina/api/v1/files/picture.png `
   -Form @{ purgeAt = '2024-12-31T23:59:59'; password='secret' }
 ```
 
+You can also set the maximum number of downloads for the file, after which it will be deleted:
+
+```bash
+http --form POST http://cantina/api/v1/files \
+  X-Key:12345678 \
+  file@~/Downloads/picture.png \
+  maxDownloads=10
+```
+
+```bash
+curl -H 'X-key:12345678' \
+  -F 'maxDownloads=10' \
+  https://cantina/upload
+```
+
+```posh
+Invoke-RestMethod https://cantina/api/v1/files `
+  -Method Post `
+  -Headers @{ 'X-Key' = '12345678' } `
+  -Form @{ file = Get-Item ./picture.png; maxDownloads=10 }
+```
+
+You can change that value with the `PATCH` method.
+
 ## Deleting
 
 Deleting stuff using [httpie](https://httpie.io):
