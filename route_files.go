@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	"github.com/gildas/go-core"
 	"github.com/gildas/go-errors"
@@ -67,7 +68,20 @@ func createFileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Infof("Written %d bytes to %s", written, destination)
 
-	metadata, err := CreateMetaInformation(context, config.WithRequest(r), filename, header.Header.Get("Content-Type"), uint64(written))
+	password := ""
+	if value := r.FormValue("password"); len(value) > 0 {
+		password = value
+	}
+
+	maxDownloads := uint64(0)
+	if value := r.FormValue("maxDownloads"); len(value) > 0 {
+		if maxDownloads, err = strconv.ParseUint(value, 10, 64); err != nil {
+			log.Errorf("Failed to parse maxDownloads", err)
+			maxDownloads = 0
+		}
+	}
+
+	metadata, err := CreateMetaInformation(context, config.WithRequest(r), filename, header.Header.Get("Content-Type"), uint64(written), password, maxDownloads)
 	if err != nil {
 		log.Errorf("Failed to build metadata info", err)
 		core.RespondWithError(w, http.StatusInternalServerError, err)

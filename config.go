@@ -21,14 +21,10 @@ type Config struct {
 	PurgeFrequency time.Duration
 	StorageRoot    string
 	StorageURL     url.URL
-	Password       string
 }
 
 func (config Config) WithRequest(r *http.Request) Config {
 	log := logger.Must(logger.FromContext(r.Context()))
-	if value := r.FormValue("password"); len(value) > 0 {
-		config.Password = value
-	}
 	for _, key := range []string{"purgeAfter", "purgeIn", "deleteAfter", "deleteIn"} {
 		if value := r.FormValue(key); len(value) > 0 {
 			purgeAfter, err := core.ParseDuration(value)

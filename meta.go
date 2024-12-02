@@ -31,14 +31,15 @@ type MetaInformation struct {
 // CreateMetaInformation creates a meta information
 //
 // a file is created in the meta folder
-func CreateMetaInformation(context context.Context, config Config, filename string, mimetype string, size uint64) (MetaInformation, error) {
+func CreateMetaInformation(context context.Context, config Config, filename string, mimetype string, size uint64, password string, maxDownloads uint64) (MetaInformation, error) {
 	metadata := MetaInformation{
-		CreatedAt: time.Now().UTC(),
-		Filename:  filename,
-		MimeType:  mimetype,
-		Size:      size,
-		Password:  config.Password,
-		config:    config,
+		CreatedAt:    time.Now().UTC(),
+		Filename:     filename,
+		MimeType:     mimetype,
+		Size:         size,
+		MaxDownloads: maxDownloads,
+		Password:     password,
+		config:       config,
 	}
 	if config.PurgeAfter > 0 {
 		deleteAt := metadata.CreatedAt.Add(config.PurgeAfter)
