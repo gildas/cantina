@@ -1,4 +1,4 @@
-FROM golang:1.17 as builder
+FROM golang:1.23 as builder
 
 WORKDIR /
 
@@ -13,7 +13,7 @@ COPY . /
 RUN CGO_ENABLED=0 go build -o main .
 
 # ---
-FROM alpine:3.15 as system
+FROM alpine:3.20 as system
 LABEL org.opencontainers.image.title="cantina"
 LABEL org.opencontainers.image.description="Very simple REST based File Storage Server"
 LABEL org.opencontainers.image.authors="Gildas Cherruel <gildas.cherruel@genesys.com>"
