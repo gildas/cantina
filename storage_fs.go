@@ -1,14 +1,19 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/gildas/go-logger"
 )
 
 // StorageFileSystem represents an http.FileSystem tailored to our needs
 type StorageFileSystem struct {
 	http.FileSystem
+	log    *logger.Logger
+	config Config
 }
 
 // StorageFile represents an http.File part of our StorageFileSystem
@@ -56,6 +61,11 @@ func (fs StorageFileSystem) Open(name string) (http.File, error) {
 	}
 	file, err := fs.FileSystem.Open(name)
 	if err != nil {
+		return nil, err
+	}
+	ctx := fs.log.ToContext(context.Background())
+	metaInformation := FindMetaInformation(ctx, fs.config, name)
+	if err := metaInformation.IncrementDownloadCount(ctx); err != nil {
 		return nil, err
 	}
 	return StorageFile{file}, err

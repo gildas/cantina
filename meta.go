@@ -17,13 +17,15 @@ import (
 )
 
 type MetaInformation struct {
-	Filename  string     `json:"filename"`
-	CreatedAt time.Time  `json:"-"`
-	DeleteAt  *time.Time `json:"-"` // Can be nil
-	MimeType  string     `json:"mimeType"`
-	Size      uint64     `json:"size"`
-	Password  string     `json:"password,omitempty"`
-	config    Config
+	Filename      string     `json:"filename"`
+	CreatedAt     time.Time  `json:"-"`
+	DeleteAt      *time.Time `json:"-"` // Can be nil
+	MimeType      string     `json:"mimeType"`
+	Size          uint64     `json:"size"`
+	MaxDownloads  uint64     `json:"maxDownloads"`
+	DownloadCount uint64     `json:"downloadCount"`
+	Password      string     `json:"password,omitempty"`
+	config        Config
 }
 
 // CreateMetaInformation creates a meta information
@@ -86,6 +88,10 @@ func (metadata *MetaInformation) Update(context context.Context, update MetaInfo
 		log.Infof("Updating DeleteAt from %s to %s", metadata.DeleteAt, update.DeleteAt)
 		metadata.DeleteAt = update.DeleteAt
 	}
+	if update.MaxDownloads > 0 && metadata.MaxDownloads != update.MaxDownloads {
+		log.Infof("Updating MaxDownloads from %d to %d", metadata.MaxDownloads, update.MaxDownloads)
+		metadata.MaxDownloads = update.MaxDownloads
+	}
 	return metadata.Save(context)
 }
 
@@ -138,6 +144,20 @@ func (metadata MetaInformation) Authenticate(password string) bool {
 	hash.Write([]byte(password))
 	hashed := "!ENC!" + base64.StdEncoding.EncodeToString(hash.Sum(nil))
 	return metadata.Password == hashed
+}
+
+// IncrementDownloadCount increments the download count
+//
+// It also saves the MetaInformation. If the MaxDownloads is reached, it marks the MetaInformation for deletion
+func (metadata *MetaInformation) IncrementDownloadCount(context context.Context) error {
+	log := logger.Must(logger.FromContext(context)).Child("meta", "increment", "filename", metadata.Filename)
+	metadata.DownloadCount++
+	if metadata.MaxDownloads > 0 && metadata.DownloadCount >= metadata.MaxDownloads {
+		log.Infof("Download count reached the limit (%d)", metadata.MaxDownloads)
+		deleteAt := time.Now().UTC()
+		metadata.DeleteAt = &deleteAt
+	}
+	return metadata.Save(context)
 }
 
 // Redact redacts the MetaInformation
